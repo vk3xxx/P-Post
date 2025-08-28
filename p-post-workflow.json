@@ -254,7 +254,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Simple data pass-through for video processing\nconst item = $input.item;\n\n// Just pass the data through - the actual processing will be done by the ExecuteCommand node\n// This avoids the sandbox limitations of the Code node\nreturn [{\n  json: {\n    ...item.json,\n    needs_processing: true\n  }\n}];"
+        "jsCode": "// Prepare video processing command with resolved values\nconst item = $input.item;\nconst { id, media_type, slide } = item.json;\n\n// Create the bash command with actual values instead of n8n expressions\nconst bashCommand = `bash -lc \"set -e; ID='${id}'; TYPE='${media_type}'; SLIDE='${slide}'; VIDEO_FILE='/tmp/n8n_video_${id}_${media_type}_${slide}.mp4'; AUDIO_FILE='/tmp/n8n_audio_${id}_${media_type}_${slide}.mp4'; OUTPUT_FILE='/tmp/n8n_mux_${id}_${media_type}_${slide}.mp4'; echo 'Processing video: $VIDEO_FILE'; if [ ! -s \\\"$VIDEO_FILE\\\" ]; then echo 'ERROR: Video file not found'; exit 1; fi; if [ -s \\\"$AUDIO_FILE\\\" ]; then echo 'Audio file found, combining...'; ffmpeg -y -loglevel error -i \\\"$VIDEO_FILE\\\" -i \\\"$AUDIO_FILE\\\" -c copy -shortest \\\"$OUTPUT_FILE\\\"; else echo 'No audio file, copying video only...'; cp \\\"$VIDEO_FILE\\\" \\\"$OUTPUT_FILE\\\"; fi; echo 'Processing completed'\"`;\n\nreturn [{\n  json: {\n    ...item.json,\n    bash_command: bashCommand\n  }\n}];"
       },
       "id": "Mux",
       "name": "Mux",
@@ -264,7 +264,7 @@
     },
     {
       "parameters": {
-        "command": "bash -lc \"set -e; ID='{{$json.id}}'; TYPE='{{$json.media_type}}'; SLIDE='{{$json.slide}}'; VIDEO_FILE='/tmp/n8n_video_${ID}_${TYPE}_${SLIDE}.mp4'; AUDIO_FILE='/tmp/n8n_audio_${ID}_${TYPE}_${SLIDE}.mp4'; OUTPUT_FILE='/tmp/n8n_mux_${ID}_${TYPE}_${SLIDE}.mp4'; echo 'Processing video: $VIDEO_FILE'; if [ ! -s \\\"$VIDEO_FILE\\\" ]; then echo 'ERROR: Video file not found'; exit 1; fi; if [ -s \\\"$AUDIO_FILE\\\" ]; then echo 'Audio file found, combining...'; ffmpeg -y -loglevel error -i \\\"$VIDEO_FILE\\\" -i \\\"$AUDIO_FILE\\\" -c copy -shortest \\\"$OUTPUT_FILE\\\"; else echo 'No audio file, copying video only...'; cp \\\"$VIDEO_FILE\\\" \\\"$OUTPUT_FILE\\\"; fi; echo 'Processing completed'\""
+        "command": "={{$json.bash_command}}"
       },
       "id": "VideoProcessor",
       "name": "VideoProcessor",
