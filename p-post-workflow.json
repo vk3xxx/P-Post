@@ -245,7 +245,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Simple data pass-through - video processing will be handled by ExecuteCommand node\nconst item = $input.item;\n\n// Just pass the data through with a flag indicating it needs processing\nreturn [{\n  json: {\n    ...item.json,\n    needs_video_processing: true\n  }\n}];"
+        "jsCode": "// Add safety checks to prevent crashes\nconst item = $input.item;\nconst { id, media_type, slide } = item.json;\n\n// Check if required fields exist\nif (!id || !media_type || !slide) {\n  console.log('Missing required fields, skipping video processing');\n  return [{\n    json: {\n      ...item.json,\n      needs_video_processing: false,\n      error: 'Missing required fields'\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...item.json,\n    needs_video_processing: true\n  }\n}];"
       },
       "id": "Mux",
       "name": "Mux",
@@ -265,7 +265,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Just prepare the command with resolved values\nconst item = $input.item;\nconst { id, media_type, slide } = item.json;\n\n// Create a simple command that should work\nconst command = `bash -c \"set -e; echo 'Processing video for ${id}...'; VIDEO_FILE='/tmp/n8n_video_${id}_${media_type}_${slide}.mp4'; AUDIO_FILE='/tmp/n8n_audio_${id}_${media_type}_${slide}.mp4'; OUTPUT_FILE='/tmp/n8n_mux_${id}_${media_type}_${slide}.mp4'; echo 'Video: $VIDEO_FILE'; if [ ! -f \\\"$VIDEO_FILE\\\" ]; then echo 'ERROR: Video file not found'; exit 1; fi; if [ -f \\\"$AUDIO_FILE\\\" ] && [ -s \\\"$AUDIO_FILE\\\" ]; then echo 'Combining video and audio...'; ffmpeg -y -loglevel error -i \\\"$VIDEO_FILE\\\" -i \\\"$AUDIO_FILE\\\" -c copy -shortest \\\"$OUTPUT_FILE\\\" || cp \\\"$VIDEO_FILE\\\" \\\"$OUTPUT_FILE\\\"; else echo 'Video only...'; cp \\\"$VIDEO_FILE\\\" \\\"$OUTPUT_FILE\\\"; fi; echo 'Processing completed'\"`;\n\nreturn [{\n  json: {\n    ...item.json,\n    resolved_command: command\n  }\n}];"
+        "jsCode": "// Create a simple, safe command for n8n 1.106.3\nconst item = $input.item;\nconst { id, media_type, slide } = item.json;\n\n// Use a much simpler approach to avoid command length issues\nconst command = `ffmpeg -y -i /tmp/n8n_video_${id}_${media_type}_${slide}.mp4 -c copy /tmp/n8n_mux_${id}_${media_type}_${slide}.mp4`;\n\nreturn [{\n  json: {\n    ...item.json,\n    resolved_command: command,\n    video_path: `/tmp/n8n_video_${id}_${media_type}_${slide}.mp4`,\n    output_path: `/tmp/n8n_mux_${id}_${media_type}_${slide}.mp4`\n  }\n}];"
       },
       "id": "CreateScript",
       "name": "CreateScript",
@@ -311,7 +311,7 @@
     },
     {
       "parameters": {
-        "command": "bash -lc \"set -e; ID='{{$json.id}}'; TYPE='{{$json.media_type}}'; SLIDE='{{$json.slide}}'; echo 'Cleaning up temporary files for ID: $ID, Type: $TYPE, Slide: $SLIDE'; rm -f \"/tmp/n8n_video_${ID}_${TYPE}_${SLIDE}.mp4\" \"/tmp/n8n_audio_${ID}_${TYPE}_${SLIDE}.mp4\" \"/tmp/n8n_mux_${ID}_${TYPE}_${SLIDE}.mp4\" || echo 'Some files may not exist (this is normal)'; echo 'Cleanup completed'\""
+        "command": "rm -f /tmp/n8n_video_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4 /tmp/n8n_audio_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4 /tmp/n8n_mux_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4"
       },
       "id": "Cleanup",
       "name": "Cleanup",
