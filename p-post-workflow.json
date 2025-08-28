@@ -155,6 +155,16 @@
 
     {
       "parameters": {
+        "jsCode": "// Debug what DLVideo is trying to download\nconst item = $input.item;\nconsole.log('=== DEBUG DLVIDEO ===');\nconsole.log('Item JSON:', JSON.stringify(item.json, null, 2));\nconsole.log('Media URL:', item.json.media_url);\nconsole.log('Media type:', item.json.media_type);\nconsole.log('ID:', item.json.id);\nconsole.log('Slide:', item.json.slide);\n\n// Check if we have a valid media URL\nif (!item.json.media_url) {\n  console.log('ERROR: No media_url provided');\n  throw new Error('No media_url provided for video download');\n}\n\n// Check if the URL looks valid\nif (!item.json.media_url.startsWith('http')) {\n  console.log('ERROR: Invalid media_url format:', item.json.media_url);\n  throw new Error('Invalid media_url format');\n}\n\nconsole.log('DLVideo should download from:', item.json.media_url);\n\n// Pass through the data\nreturn [{\n  json: {\n    id: item.json.id,\n    media_type: item.json.media_type,\n    slide: item.json.slide,\n    chat_id: item.json.chat_id,\n    caption: item.json.caption,\n    media_url: item.json.media_url\n  }\n}];"
+      },
+      "id": "DebugDLVideo",
+      "name": "DebugDLVideo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [150, 300]
+    },
+    {
+      "parameters": {
         "url": "={{$json.media_url}}",
         "responseFormat": "file",
         "binaryPropertyName": "video",
@@ -279,7 +289,8 @@
     },
     "SplitImages": { "main": [[{ "node": "SendPhoto", "type": "main", "index": 0 }]] },
     "SendPhoto": { "main": [[{ "node": "WaitImages", "type": "main", "index": 0 }]] },
-    "SplitVideos": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }]] },
+    "SplitVideos": { "main": [[{ "node": "DebugDLVideo", "type": "main", "index": 0 }]] },
+    "DebugDLVideo": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }]] },
     "DLVideo": { "main": [[{ "node": "WriteVideo", "type": "main", "index": 0 }]] },
     "WriteVideo": { "main": [[{ "node": "DebugWriteVideo", "type": "main", "index": 0 }]] },
     "DebugWriteVideo": { "main": [[{ "node": "ProcessVideo", "type": "main", "index": 0 }]] },
