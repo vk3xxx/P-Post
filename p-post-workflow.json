@@ -1,6 +1,6 @@
 {
   "name": "P-Post_Content_Automation",
-  "comment": "TODO: Fix rate_seconds variable passing - currently hardcoded to 45 seconds in WaitImages and WaitVideos nodes. The $json.rate_seconds expression is not resolving correctly, possibly due to data flow issues through the workflow nodes. TODO: Verify SendPhoto media_url expression is working correctly - may need manual configuration in n8n interface.",
+  "comment": "TODO: Fix rate_seconds variable passing - currently hardcoded to 45 seconds in WaitImages and WaitVideos nodes. The $json.rate_seconds expression is not resolving correctly, possibly due to data flow issues through the workflow nodes. TODO: SendPhoto media_url field shows blank in n8n interface despite correct code - this is a known n8n import issue. Manual configuration required: set Photo field to ={{$json.media_url}} in n8n interface.",
   "nodes": [
     {
       "parameters": {},
