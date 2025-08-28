@@ -264,13 +264,24 @@
     },
     {
       "parameters": {
-        "command": "bash -lc \"set -e; echo 'Starting video processing...'; VIDEO_FILE='/tmp/n8n_video_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'; AUDIO_FILE='/tmp/n8n_audio_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'; OUTPUT_FILE='/tmp/n8n_mux_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'; echo \\\"Processing: $VIDEO_FILE\\\"; if [ ! -f \\\"$VIDEO_FILE\\\" ]; then echo 'ERROR: Video file not found'; exit 1; fi; if [ -f \\\"$AUDIO_FILE\\\" ] && [ -s \\\"$AUDIO_FILE\\\" ]; then echo 'Combining video and audio...'; ffmpeg -y -loglevel error -i \\\"$VIDEO_FILE\\\" -i \\\"$AUDIO_FILE\\\" -c copy -shortest \\\"$OUTPUT_FILE\\\" || cp \\\"$VIDEO_FILE\\\" \\\"$OUTPUT_FILE\\\"; else echo 'Video only...'; cp \\\"$VIDEO_FILE\\\" \\\"$OUTPUT_FILE\\\"; fi; echo 'Processing completed'\""
+        "command": "=/tmp/process_video_{{$json.id}}.sh"
       },
       "id": "VideoProcessor",
       "name": "VideoProcessor",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [900, 360]
+    },
+    {
+      "parameters": {
+        "fileName": "=/tmp/process_video_{{$json.id}}.sh",
+        "data": "=#!/bin/bash\nset -e\necho 'Starting video processing for {{$json.id}}...'\nVIDEO_FILE='/tmp/n8n_video_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'\nAUDIO_FILE='/tmp/n8n_audio_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'\nOUTPUT_FILE='/tmp/n8n_mux_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'\necho \"Processing: $VIDEO_FILE\"\nif [ ! -f \"$VIDEO_FILE\" ]; then\n  echo 'ERROR: Video file not found'\n  exit 1\nfi\nif [ -f \"$AUDIO_FILE\" ] && [ -s \"$AUDIO_FILE\" ]; then\n  echo 'Combining video and audio...'\n  ffmpeg -y -loglevel error -i \"$VIDEO_FILE\" -i \"$AUDIO_FILE\" -c copy -shortest \"$OUTPUT_FILE\" || cp \"$VIDEO_FILE\" \"$OUTPUT_FILE\"\nelse\n  echo 'Video only...'\n  cp \"$VIDEO_FILE\" \"$OUTPUT_FILE\"\nfi\necho 'Processing completed'\nchmod +x /tmp/process_video_{{$json.id}}.sh"
+      },
+      "id": "CreateScript",
+      "name": "CreateScript",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [850, 360]
     },
     {
       "parameters": {
@@ -357,7 +368,8 @@
     "DLAudio": { "main": [[{ "node": "WriteAudio", "type": "main", "index": 0 }]] },
     "WriteAudio": { "main": [[{ "node": "CombineMedia", "type": "main", "index": 1 }]] },
     "CombineMedia": { "main": [[{ "node": "Mux", "type": "main", "index": 0 }]] },
-    "Mux": { "main": [[{ "node": "VideoProcessor", "type": "main", "index": 0 }]] },
+    "Mux": { "main": [[{ "node": "CreateScript", "type": "main", "index": 0 }]] },
+    "CreateScript": { "main": [[{ "node": "VideoProcessor", "type": "main", "index": 0 }]] },
     "VideoProcessor": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
     "ReadMux": { "main": [[{ "node": "MergeVideoData", "type": "main", "index": 0 }]] },
     "MergeVideoData": { "main": [[{ "node": "SendVideo", "type": "main", "index": 0 }]] },
