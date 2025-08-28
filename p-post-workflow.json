@@ -165,20 +165,32 @@
     },
     {
       "parameters": {
+        "jsCode": "// Smart download strategy for Reddit videos\nconst item = $input.item;\nconsole.log('=== SMART DOWNLOAD STRATEGY ===');\n\n// Try to extract different video qualities from the URL\nlet mediaUrl = item.json.media_url;\n\n// If it's a DASH video, try different quality options\nif (mediaUrl.includes('DASH_')) {\n  console.log('DASH video detected, trying different qualities...');\n  \n  // Try different DASH qualities (720p, 480p, 360p)\n  const qualities = ['720', '480', '360'];\n  const baseUrl = mediaUrl.replace(/DASH_\\d+\\.mp4$/, '');\n  \n  // Create alternative URLs\n  const alternativeUrls = qualities.map(q => `${baseUrl}DASH_${q}.mp4`);\n  \n  console.log('Alternative URLs to try:', alternativeUrls);\n  \n  // Use the first alternative URL (720p)\n  mediaUrl = alternativeUrls[0];\n  console.log('Using alternative URL:', mediaUrl);\n}\n\n// Add fallback strategy - try to get the video from Reddit's JSON API\nif (mediaUrl.includes('v.redd.it')) {\n  console.log('Reddit video detected, adding fallback strategy...');\n  \n  // Extract the video ID from the URL\n  const videoId = mediaUrl.match(/\\/([^\\/]+)\\.mp4$/)?.[1] || 'unknown';\n  console.log('Video ID extracted:', videoId);\n  \n  // Create a fallback URL using Reddit's JSON endpoint\n  const fallbackUrl = `https://www.reddit.com/api/info.json?id=t3_${videoId}`;\n  console.log('Fallback JSON API URL:', fallbackUrl);\n}\n\nconsole.log('Final media URL to download:', mediaUrl);\n\n// Pass through the data with the potentially modified URL\nreturn [{\n  json: {\n    id: item.json.id,\n    media_type: item.json.media_type,\n    slide: item.json.slide,\n    chat_id: item.json.chat_id,\n    caption: item.json.caption,\n    media_url: mediaUrl,\n    original_media_url: item.json.media_url,\n    fallback_strategy: true\n  }\n}];"
+      },
+      "id": "SmartDownload",
+      "name": "SmartDownload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [175, 300]
+    },
+    {
+      "parameters": {
         "url": "={{$json.media_url}}",
         "responseFormat": "file",
         "binaryPropertyName": "video",
         "options": {
           "timeout": 120000,
           "headers": {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Referer": "https://www.reddit.com/",
-            "Accept": "video/webm,video/ogg,video/*;q=0.9,application/ogg;q=0.7,audio/*;q=0.6,*/*;q=0.5",
-            "Accept-Language": "en-US,en;q=0.5",
+            "Accept": "*/*",
+            "Accept-Language": "en-US,en;q=0.9",
             "Accept-Encoding": "gzip, deflate, br",
-            "DNT": "1",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1"
+            "Sec-Fetch-Dest": "video",
+            "Sec-Fetch-Mode": "no-cors",
+            "Sec-Fetch-Site": "cross-site",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache"
           }
         }
       },
@@ -300,7 +312,8 @@
     "SplitImages": { "main": [[{ "node": "SendPhoto", "type": "main", "index": 0 }]] },
     "SendPhoto": { "main": [[{ "node": "WaitImages", "type": "main", "index": 0 }]] },
     "SplitVideos": { "main": [[{ "node": "DebugDLVideo", "type": "main", "index": 0 }]] },
-    "DebugDLVideo": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }]] },
+    "DebugDLVideo": { "main": [[{ "node": "SmartDownload", "type": "main", "index": 0 }]] },
+    "SmartDownload": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }]] },
     "DLVideo": { "main": [[{ "node": "WriteVideo", "type": "main", "index": 0 }]] },
     "WriteVideo": { "main": [[{ "node": "DebugWriteVideo", "type": "main", "index": 0 }]] },
     "DebugWriteVideo": { "main": [[{ "node": "ProcessVideo", "type": "main", "index": 0 }]] },
