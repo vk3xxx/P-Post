@@ -204,12 +204,12 @@
     },
     {
       "parameters": {
-        "jsCode": "// Download video using curl and preserve JSON data\nconst item = $input.item;\nconsole.log('=== DLVIDEO DOWNLOADING ===');\nconsole.log('Input item:', JSON.stringify(item.json, null, 2));\n\nconst { id, media_type, slide, media_url, chat_id, caption } = item.json;\nconsole.log('Downloading video for:', { id, media_type, slide, media_url });\n\n// Validate required fields\nif (!id || !media_type || !slide || !media_url) {\n  console.log('ERROR: Missing required fields in DLVideo');\n  console.log('id:', id);\n  console.log('media_type:', media_type);\n  console.log('slide:', slide);\n  console.log('media_url:', media_url);\n  throw new Error('Missing required fields in DLVideo');\n}\n\n// Build the curl command\nconst curlCommand = `curl -L -o /tmp/n8n_video_${id}_${media_type}_${slide}.mp4 -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' -H 'Referer: https://www.reddit.com/' -H 'Accept: */*' -H 'Accept-Language: en-US,en;q=0.9' -H 'Accept-Encoding: gzip, deflate, br' -H 'Sec-Fetch-Dest: video' -H 'Sec-Fetch-Mode: no-cors' -H 'Sec-Fetch-Site: cross-site' -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' --connect-timeout 30 --max-time 120 '${media_url}'`;\n\nconsole.log('Executing curl command:', curlCommand);\n\n// Execute the curl command using child_process\nconst { execSync } = require('child_process');\ntry {\n  const result = execSync(curlCommand, { encoding: 'utf8' });\n  console.log('Download completed successfully');\n  console.log('Result:', result);\n} catch (error) {\n  console.log('Download failed:', error.message);\n  throw new Error(`Video download failed: ${error.message}`);\n}\n\n// Pass through the data with all required fields preserved\nreturn [{\n  json: {\n    id,\n    media_type,\n    slide,\n    chat_id,\n    caption,\n    media_url,\n    download_completed: true,\n    file_path: `/tmp/n8n_video_${id}_${media_type}_${slide}.mp4`\n  }\n}];"
+        "command": "curl -L -o /tmp/n8n_video_{{.id}}_{{.media_type}}_{{.slide}}.mp4 -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' -H 'Referer: https://www.reddit.com/' -H 'Accept: */*' -H 'Accept-Language: en-US,en;q=0.9' -H 'Accept-Encoding: gzip, deflate, br' -H 'Sec-Fetch-Dest: video' -H 'Sec-Fetch-Mode: no-cors' -H 'Sec-Fetch-Site: cross-site' -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' --connect-timeout 30 --max-time 120 '{{.media_url}}' && echo 'DOWNLOAD_COMPLETE'"
       },
       "id": "DLVideo",
       "name": "DLVideo",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [200, 300]
     },
 
@@ -217,10 +217,10 @@
 
     {
       "parameters": {
-        "jsCode": "// Debug what WriteVideo is actually doing\nconst item = $input.item;\nconsole.log('=== DEBUG WRITEVIDEO ===');\nconsole.log('Item JSON:', JSON.stringify(item.json, null, 2));\nconsole.log('File path would be:', `/tmp/n8n_video_${item.json.id}_${item.json.media_type}_${item.json.slide}.mp4`);\n\n// Check if we have the required fields\nif (!item.json.id || !item.json.media_type || !item.json.slide) {\n  console.log('ERROR: Missing required fields');\n  throw new Error('Missing required fields for video processing');\n}\n\n// Since DLVideo now uses curl to download directly to /tmp/, we don't need binary data\n// We just need to pass through the JSON data for the next node\nconsole.log('DLVideo should have downloaded video file to /tmp/');\n\n// Pass through the data (no binary needed since file is already on disk)\nreturn [{\n  json: {\n    id: item.json.id,\n    media_type: item.json.media_type,\n    slide: item.json.slide,\n    chat_id: item.json.chat_id,\n    caption: item.json.caption\n  }\n}];"
+        "jsCode": "// Preserve video data after DLVideo download\nconst item = $input.item;\nconsole.log('=== PRESERVE VIDEO DATA ===');\nconsole.log('Input item:', JSON.stringify(item.json, null, 2));\n\n// Get the original data from the workflow context (before DLVideo)\nconst originalData = $('ProcessRedditAPI').item.json;\n\nif (!originalData) {\n  console.log('ERROR: Could not access original data from ProcessRedditAPI');\n  throw new Error('Could not access original data from ProcessRedditAPI');\n}\n\nconsole.log('Original data retrieved:', {\n  id: originalData.id,\n  media_type: originalData.media_type,\n  slide: originalData.slide,\n  chat_id: originalData.chat_id,\n  caption: originalData.caption,\n  media_url: originalData.media_url\n});\n\n// Pass through the data with all required fields preserved\nreturn [{\n  json: {\n    id: originalData.id,\n    media_type: originalData.media_type,\n    slide: originalData.slide,\n    chat_id: originalData.chat_id,\n    caption: originalData.caption,\n    media_url: originalData.media_url,\n    download_completed: true,\n    file_path: `/tmp/n8n_video_${originalData.id}_${originalData.media_type}_${originalData.slide}.mp4`\n  }\n}];"
       },
-      "id": "DebugWriteVideo",
-      "name": "DebugWriteVideo",
+      "id": "PreserveVideoData",
+      "name": "PreserveVideoData",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [450, 300]
@@ -318,8 +318,8 @@
     "SmartDownload": { "main": [[{ "node": "RedditAPI", "type": "main", "index": 0 }]] },
     "RedditAPI": { "main": [[{ "node": "ProcessRedditAPI", "type": "main", "index": 0 }]] },
     "ProcessRedditAPI": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }]] },
-    "DLVideo": { "main": [[{ "node": "DebugWriteVideo", "type": "main", "index": 0 }]] },
-    "DebugWriteVideo": { "main": [[{ "node": "ProcessVideo", "type": "main", "index": 0 }]] },
+    "DLVideo": { "main": [[{ "node": "PreserveVideoData", "type": "main", "index": 0 }]] },
+    "PreserveVideoData": { "main": [[{ "node": "ProcessVideo", "type": "main", "index": 0 }]] },
     "ProcessVideo": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
     "ReadMux": { "main": [[{ "node": "MergeVideoData", "type": "main", "index": 0 }]] },
     "MergeVideoData": { "main": [[{ "node": "SendVideo", "type": "main", "index": 0 }]] },
