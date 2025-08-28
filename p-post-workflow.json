@@ -240,7 +240,17 @@
 
     {
       "parameters": {
-        "command": "bash -c \"set -e; ID='{{$json.id}}'; TYPE='{{$json.media_type}}'; SLIDE='{{$json.slide}}'; VIDEO_FILE='/tmp/n8n_video_${ID}_${TYPE}_${SLIDE}.mp4'; OUTPUT_FILE='/tmp/n8n_mux_${ID}_${TYPE}_${SLIDE}.mp4'; echo '=== DEBUG INFO ==='; echo 'ID: $ID'; echo 'TYPE: $TYPE'; echo 'SLIDE: $SLIDE'; echo 'VIDEO_FILE: $VIDEO_FILE'; echo 'OUTPUT_FILE: $OUTPUT_FILE'; echo '=== CHECKING FILES ==='; echo 'All files in /tmp:'; ls -la /tmp/ | head -20; echo '=== N8N FILES ==='; ls -la /tmp/ | grep n8n || echo 'No n8n files found'; echo '=== SPECIFIC VIDEO FILE ==='; ls -la \\\"$VIDEO_FILE\\\" 2>/dev/null || echo 'Video file not found'; echo '=== ATTEMPTING PROCESSING ==='; if [ ! -s \\\"$VIDEO_FILE\\\" ]; then echo 'ERROR: Video file not found or empty'; echo 'This means WriteVideo node failed to create the file'; exit 1; fi; echo 'Video file found, copying...'; cp \\\"$VIDEO_FILE\\\" \\\"$OUTPUT_FILE\\\"; echo 'Video processing completed successfully'\""
+        "jsCode": "// Build the process video command with resolved values\nconst item = $input.item;\nconsole.log('=== BUILDING PROCESS COMMAND ===');\nconsole.log('Input item:', JSON.stringify(item.json, null, 2));\n\nconst { id, media_type, slide } = item.json;\nconsole.log('Building process command for:', { id, media_type, slide });\n\n// Validate required fields\nif (!id || !media_type || !slide) {\n  console.log('ERROR: Missing required fields in BuildProcessCommand');\n  console.log('id:', id);\n  console.log('media_type:', media_type);\n  console.log('slide:', slide);\n  throw new Error('Missing required fields in BuildProcessCommand');\n}\n\n// Build the complete bash command with resolved values\nconst bashCommand = `bash -c \"set -e; ID='${id}'; TYPE='${media_type}'; SLIDE='${slide}'; VIDEO_FILE='/tmp/n8n_video_${id}_${media_type}_${slide}.mp4'; OUTPUT_FILE='/tmp/n8n_mux_${id}_${media_type}_${slide}.mp4'; echo '=== DEBUG INFO ==='; echo 'ID: $ID'; echo 'TYPE: $TYPE'; echo 'SLIDE: $SLIDE'; echo 'VIDEO_FILE: $VIDEO_FILE'; echo 'OUTPUT_FILE: $OUTPUT_FILE'; echo '=== CHECKING FILES ==='; echo 'All files in /tmp:'; ls -la /tmp/ | head -20; echo '=== N8N FILES ==='; ls -la /tmp/ | grep n8n || echo 'No n8n files found'; echo '=== SPECIFIC VIDEO FILE ==='; ls -la \\\"$VIDEO_FILE\\\" 2>/dev/null || echo 'Video file not found'; echo '=== ATTEMPTING PROCESSING ==='; if [ ! -s \\\"$VIDEO_FILE\\\" ]; then echo 'ERROR: Video file not found or empty'; echo 'This means DLVideo node failed to create the file'; exit 1; fi; echo 'Video file found, copying...'; cp \\\"$VIDEO_FILE\\\" \\\"$OUTPUT_FILE\\\"; echo 'Video processing completed successfully'\"`;\n\nconsole.log('Built bash command:', bashCommand);\n\n// Pass through the data with the resolved command\nreturn [{\n  json: {\n    id,\n    media_type,\n    slide,\n    chat_id: item.json.chat_id,\n    caption: item.json.caption,\n    media_url: item.json.media_url,\n    download_completed: item.json.download_completed,\n    file_path: item.json.file_path,\n    resolved_bash_command: bashCommand\n  }\n}];"
+      },
+      "id": "BuildProcessCommand",
+      "name": "BuildProcessCommand",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "command": "={{$json.resolved_bash_command}}"
       },
       "id": "ProcessVideo",
       "name": "ProcessVideo",
@@ -330,7 +340,8 @@
     "ProcessRedditAPI": { "main": [[{ "node": "BuildCurlCommand", "type": "main", "index": 0 }]] },
     "BuildCurlCommand": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }]] },
     "DLVideo": { "main": [[{ "node": "PreserveVideoData", "type": "main", "index": 0 }]] },
-    "PreserveVideoData": { "main": [[{ "node": "ProcessVideo", "type": "main", "index": 0 }]] },
+    "PreserveVideoData": { "main": [[{ "node": "BuildProcessCommand", "type": "main", "index": 0 }]] },
+    "BuildProcessCommand": { "main": [[{ "node": "ProcessVideo", "type": "main", "index": 0 }]] },
     "ProcessVideo": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
     "ReadMux": { "main": [[{ "node": "MergeVideoData", "type": "main", "index": 0 }]] },
     "MergeVideoData": { "main": [[{ "node": "SendVideo", "type": "main", "index": 0 }]] },
