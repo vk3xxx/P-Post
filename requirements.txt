@@ -1,0 +1,18 @@
+# N8N Workflow Dependencies
+# This file lists the system requirements for running the P-Post n8n workflow
+
+# System Requirements
+# - n8n (latest version)
+# - FFmpeg for video processing
+# - Python 3.8+ (for custom functions if needed)
+# - Sufficient disk space for temporary video files
+
+# FFmpeg Installation
+# macOS: brew install ffmpeg
+# Ubuntu/Debian: sudo apt install ffmpeg
+# Windows: Download from https://ffmpeg.org/download.html
+
+# N8N Installation
+# npm install -g n8n
+# or
+# docker run -it --rm --name n8n -p 5678:5678 n8nio/n8n

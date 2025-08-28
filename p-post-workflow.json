@@ -1,0 +1,280 @@
+{
+  "name": "P-Post_Content_Automation",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "ManualTrigger",
+      "name": "ManualTrigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-1600, 200]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            { "name": "subreddit", "value": "GOONED" },
+            { "name": "chat_id", "value": "-1002899637373" }
+          ],
+          "number": [
+            { "name": "limit", "value": 30 },
+            { "name": "rate_seconds", "value": 45 },
+            { "name": "memory_ttl_days", "value": 60 }
+          ]
+        }
+      },
+      "id": "Vars",
+      "name": "Vars",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [-1420, 200]
+    },
+    {
+      "parameters": {
+        "url": "https://www.reddit.com/r/GOONED/new.json",
+        "options": {
+          "queryParametersUi": {
+            "parameter": [
+              { "name": "limit", "value": "={{$node[\"Vars\"].json[\"limit\"]}}" },
+              { "name": "raw_json", "value": "1" }
+            ]
+          },
+          "headers": {
+            "User-Agent": "n8n/EnterpriseFetcher",
+            "cookie": "over18=1"
+          },
+          "timeout": 20000
+        }
+      },
+      "id": "FetchJSON",
+      "name": "FetchJSON",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [-1230, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "function dec(u){ try { return u?.replace(/&amp;/g,'&'); } catch { return u; } } function largestPreview(p){ const img=p?.preview?.images?.[0]; return dec(img?.source?.url || img?.s?.u || img?.s?.url); } function isImg(u){ return typeof u==='string' && /(\\.jpg|\\.jpeg|\\.png|\\.gif|\\.webp)(\\?|$)/i.test(u||''); } const posts = items[0].json?.data?.children || []; const out = []; for (const c of posts){ const p = c.data || {}; const base = { id:p.id, title:p.title, permalink:`https://www.reddit.com${p.permalink}`, chat_id:$node['Vars'].json['chat_id'], rate_seconds:$node['Vars'].json['rate_seconds'] }; if (p.is_gallery && p.media_metadata){ const ids = p.gallery_data?.items?.map(i=>i.media_id) || Object.keys(p.media_metadata); const total = ids.length; ids.forEach((mid, idx) => { const m=p.media_metadata[mid]; if(!m) return; const url=dec(m?.s?.u || m?.s?.gif || m?.s?.mp4 || m?.s?.url); if(!url) return; out.push({ json:{...base,is_video:false,media_type:'image',media_url:url,slide:idx+1,total} }); }); continue; } const rv = p?.secure_media?.reddit_video || p?.media?.reddit_video || p?.preview?.reddit_video_preview; if (rv?.fallback_url){ const v = dec(rv.fallback_url); let audio; try { const u=new URL(v); const m=u.pathname.match(/\\/DASH_[^\\/]+\\.(mp4|webm)$/i); if(m){ u.pathname=u.pathname.replace(/\\/DASH_[^\\/]+\\.(mp4|webm)$/i,'/DASH_audio.'+m[1]); audio=u.toString(); } } catch{} out.push({ json:{...base,is_video:true,media_type:'reddit_video',media_url:v,audio_url:audio,slide:1,total:1} }); continue; } const direct = dec(p.url_overridden_by_dest || p.url); if (isImg(direct)) { out.push({ json:{...base,is_video:false,media_type:'image',media_url:direct,slide:1,total:1} }); continue; } const prev = largestPreview(p); if (prev) out.push({ json:{...base,is_video:false,media_type:'image',media_url:prev,slide:1,total:1} }); } return out;"
+      },
+      "id": "ExtractMedia",
+      "name": "ExtractMedia",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [-1040, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "const state = $getWorkflowStaticData('global'); if(!state.posted) state.posted={}; const ttl=($node['Vars'].json['memory_ttl_days']||60)*24*60*60*1000; const now=Date.now(); for(const [k,t] of Object.entries(state.posted)){ if(!t||now-t>ttl) delete state.posted[k]; } const fresh=[]; for(const it of items){ const k=it.json.key||it.json.media_url||it.json.id; if(!k) continue; if(!state.posted[k]){ state.posted[k]=now; fresh.push(it);} } return fresh;"
+      },
+      "id": "Deduplicate",
+      "name": "Deduplicate",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [-820, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "return items.map(it=>{ const j=it.json; j.caption = j.total>1 ? `${j.title} [${j.slide}/${j.total}]\\n${j.permalink}` : `${j.title}\\n${j.permalink}`; return {json:j}; });"
+      },
+      "id": "CaptionBuilder",
+      "name": "CaptionBuilder",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [-620, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            { "value1": "={{$json.is_video}}", "operation": "equal", "value2": true }
+          ]
+        }
+      },
+      "id": "IfVideo",
+      "name": "IfVideo",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [-420, 200]
+    },
+    {
+      "parameters": { "options": { "batchSize": 1 } },
+      "id": "SplitImages",
+      "name": "SplitImages",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [-220, 60]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendPhoto",
+        "chatId": "={{$json.chat_id}}",
+        "photo": "={{$json.media_url}}",
+        "additionalFields": { "caption": "={{$json.caption}}" }
+      },
+      "id": "SendPhoto",
+      "name": "SendPhoto",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [0, 60]
+    },
+    {
+      "parameters": { "amount": "={{$json.rate_seconds}}", "unit": "seconds" },
+      "id": "WaitImages",
+      "name": "WaitImages",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [200, 60]
+    },
+    {
+      "parameters": { "options": { "batchSize": 1 } },
+      "id": "SplitVideos",
+      "name": "SplitVideos",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 1,
+      "position": [-220, 340]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.media_url}}",
+        "responseFormat": "file",
+        "binaryPropertyName": "video",
+        "options": { "timeout": 120000, "followRedirect": true }
+      },
+      "id": "DLVideo",
+      "name": "DLVideo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.audio_url}}",
+        "responseFormat": "file",
+        "binaryPropertyName": "audio",
+        "options": { "timeout": 120000, "ignoreResponseCode": true, "followRedirect": true }
+      },
+      "id": "DLAudio",
+      "name": "DLAudio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [0, 420]
+    },
+    {
+      "parameters": { "mode": "mergeByPosition" },
+      "id": "CombineMedia",
+      "name": "CombineMedia",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [200, 360]
+    },
+    {
+      "parameters": {
+        "fileName": "=/tmp/n8n_video_{{$json.id}}.mp4",
+        "binaryPropertyName": "video"
+      },
+      "id": "WriteVideo",
+      "name": "WriteVideo",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "fileName": "=/tmp/n8n_audio_{{$json.id}}.mp4",
+        "binaryPropertyName": "audio"
+      },
+      "id": "WriteAudio",
+      "name": "WriteAudio",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [400, 420]
+    },
+    {
+      "parameters": {
+        "command": "bash -lc \"set -e; if [ -s /tmp/n8n_audio_{{$json.id}}.mp4 ]; then ffmpeg -y -loglevel error -i /tmp/n8n_video_{{$json.id}}.mp4 -i /tmp/n8n_audio_{{$json.id}}.mp4 -c copy -shortest /tmp/n8n_mux_{{$json.id}}.mp4; else cp /tmp/n8n_video_{{$json.id}}.mp4 /tmp/n8n_mux_{{$json.id}}.mp4; fi\""
+      },
+      "id": "Mux",
+      "name": "Mux",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [600, 360]
+    },
+    {
+      "parameters": {
+        "filePath": "=/tmp/n8n_mux_{{$json.id}}.mp4",
+        "binaryPropertyName": "data"
+      },
+      "id": "ReadMux",
+      "name": "ReadMux",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [800, 360]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendVideo",
+        "chatId": "={{$json.chat_id}}",
+        "binaryData": true,
+        "video": "data",
+        "additionalFields": { "caption": "={{$json.caption}}" }
+      },
+      "id": "SendVideo",
+      "name": "SendVideo",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1000, 360]
+    },
+    {
+      "parameters": {
+        "command": "bash -lc \"rm -f /tmp/n8n_*_{{$json.id}}.mp4 || true\""
+      },
+      "id": "Cleanup",
+      "name": "Cleanup",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1200, 360]
+    },
+    {
+      "parameters": { "amount": "={{$json.rate_seconds}}", "unit": "seconds" },
+      "id": "WaitVideos",
+      "name": "WaitVideos",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [1400, 360]
+    }
+  ],
+  "connections": {
+    "ManualTrigger": { "main": [[{ "node": "Vars", "type": "main", "index": 0 }]] },
+    "Vars": { "main": [[{ "node": "FetchJSON", "type": "main", "index": 0 }]] },
+    "FetchJSON": { "main": [[{ "node": "ExtractMedia", "type": "main", "index": 0 }]] },
+    "ExtractMedia": { "main": [[{ "node": "Deduplicate", "type": "main", "index": 0 }]] },
+    "Deduplicate": { "main": [[{ "node": "CaptionBuilder", "type": "main", "index": 0 }]] },
+    "CaptionBuilder": { "main": [[{ "node": "IfVideo", "type": "main", "index": 0 }]] },
+    "IfVideo": {
+      "main": [
+        [{ "node": "SplitVideos", "type": "main", "index": 0 }],
+        [{ "node": "SplitImages", "type": "main", "index": 0 }]
+      ]
+    },
+    "SplitImages": { "main": [[{ "node": "SendPhoto", "type": "main", "index": 0 }]] },
+    "SendPhoto": { "main": [[{ "node": "WaitImages", "type": "main", "index": 0 }]] },
+    "SplitVideos": {
+      "main": [
+        [{ "node": "DLVideo", "type": "main", "index": 0 }],
+        [{ "node": "DLAudio", "type": "main", "index": 0 }]
+      ]
+    },
+    "DLVideo": { "main": [[{ "node": "CombineMedia", "type": "main", "index": 0 }]] },
+    "DLAudio": { "main": [[{ "node": "CombineMedia", "type": "main", "index": 1 }]] },
+    "CombineMedia": { "main": [[{ "node": "WriteVideo", "type": "main", "index": 0 }, { "node": "WriteVideo", "type": "main", "index": 0 }]] },
+    "WriteVideo": { "main": [[{ "node": "Mux", "type": "main", "index": 0 }]] },
+    "WriteAudio": { "main": [[{ "node": "Mux", "type": "main", "index": 0 }]] },
+    "Mux": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
+    "ReadMux": { "main": [[{ "node": "SendVideo", "type": "main", "index": 0 }]] },
+    "SendVideo": { "main": [[{ "node": "Cleanup", "type": "main", "index": 0 }]] },
+    "Cleanup": { "main": [[{ "node": "WaitVideos", "type": "main", "index": 0 }]] }
+  }
+}
