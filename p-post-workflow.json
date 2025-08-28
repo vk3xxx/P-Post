@@ -182,7 +182,7 @@
     },
     {
       "parameters": {
-        "mode": "mergeByPosition",
+        "mode": "append",
         "options": {}
       },
       "id": "CombineMedia",
