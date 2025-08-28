@@ -261,6 +261,17 @@
 
     {
       "parameters": {
+        "jsCode": "// Preserve processed video data after ProcessVideo execution\nconst item = $input.item;\nconsole.log('=== PRESERVE PROCESSED DATA ===');\nconsole.log('Input item:', JSON.stringify(item.json, null, 2));\n\n// Get the original data from the workflow context (before ProcessVideo)\nconst originalData = $('PreserveVideoData').item.json;\n\nif (!originalData) {\n  console.log('ERROR: Could not access original data from PreserveVideoData');\n  throw new Error('Could not access original data from PreserveVideoData');\n}\n\nconsole.log('Original data retrieved:', {\n  id: originalData.id,\n  media_type: originalData.media_type,\n  slide: originalData.slide,\n  chat_id: originalData.chat_id,\n  caption: originalData.caption,\n  media_url: originalData.media_url\n});\n\n// Pass through the data with all required fields preserved\nreturn [{\n  json: {\n    id: originalData.id,\n    media_type: originalData.media_type,\n    slide: originalData.slide,\n    chat_id: originalData.chat_id,\n    caption: originalData.caption,\n    media_url: originalData.media_url,\n    download_completed: originalData.download_completed,\n    file_path: originalData.file_path,\n    processing_completed: true,\n    mux_file_path: `/tmp/n8n_mux_${originalData.id}_${originalData.media_type}_${originalData.slide}.mp4`\n  }\n}];"
+      },
+      "id": "PreserveProcessedData",
+      "name": "PreserveProcessedData",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [975, 360]
+    },
+
+    {
+      "parameters": {
         "filePath": "=/tmp/n8n_mux_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4",
         "binaryPropertyName": "data"
       },
@@ -342,7 +353,8 @@
     "DLVideo": { "main": [[{ "node": "PreserveVideoData", "type": "main", "index": 0 }]] },
     "PreserveVideoData": { "main": [[{ "node": "BuildProcessCommand", "type": "main", "index": 0 }]] },
     "BuildProcessCommand": { "main": [[{ "node": "ProcessVideo", "type": "main", "index": 0 }]] },
-    "ProcessVideo": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
+    "ProcessVideo": { "main": [[{ "node": "PreserveProcessedData", "type": "main", "index": 0 }]] },
+    "PreserveProcessedData": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
     "ReadMux": { "main": [[{ "node": "MergeVideoData", "type": "main", "index": 0 }]] },
     "MergeVideoData": { "main": [[{ "node": "SendVideo", "type": "main", "index": 0 }]] },
     "SendVideo": { "main": [[{ "node": "Cleanup", "type": "main", "index": 0 }]] },
