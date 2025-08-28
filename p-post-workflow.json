@@ -264,7 +264,7 @@
     },
     {
       "parameters": {
-        "command": "=/tmp/process_video_{{$json.id}}.sh"
+        "command": "={{$json.resolved_command}}"
       },
       "id": "VideoProcessor",
       "name": "VideoProcessor",
@@ -274,13 +274,12 @@
     },
     {
       "parameters": {
-        "fileName": "=/tmp/process_video_{{$json.id}}.sh",
-        "data": "=#!/bin/bash\nset -e\necho 'Starting video processing for {{$json.id}}...'\nVIDEO_FILE='/tmp/n8n_video_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'\nAUDIO_FILE='/tmp/n8n_audio_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'\nOUTPUT_FILE='/tmp/n8n_mux_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'\necho \"Processing: $VIDEO_FILE\"\nif [ ! -f \"$VIDEO_FILE\" ]; then\n  echo 'ERROR: Video file not found'\n  exit 1\nfi\nif [ -f \"$AUDIO_FILE\" ] && [ -s \"$AUDIO_FILE\" ]; then\n  echo 'Combining video and audio...'\n  ffmpeg -y -loglevel error -i \"$VIDEO_FILE\" -i \"$AUDIO_FILE\" -c copy -shortest \"$OUTPUT_FILE\" || cp \"$VIDEO_FILE\" \"$OUTPUT_FILE\"\nelse\n  echo 'Video only...'\n  cp \"$VIDEO_FILE\" \"$OUTPUT_FILE\"\nfi\necho 'Processing completed'\nchmod +x /tmp/process_video_{{$json.id}}.sh"
+        "jsCode": "// Just prepare the command with resolved values\nconst item = $input.item;\nconst { id, media_type, slide } = item.json;\n\n// Create a simple command that should work\nconst command = `bash -c \"set -e; echo 'Processing video for ${id}...'; VIDEO_FILE='/tmp/n8n_video_${id}_${media_type}_${slide}.mp4'; AUDIO_FILE='/tmp/n8n_audio_${id}_${media_type}_${slide}.mp4'; OUTPUT_FILE='/tmp/n8n_mux_${id}_${media_type}_${slide}.mp4'; echo 'Video: $VIDEO_FILE'; if [ ! -f \\\"$VIDEO_FILE\\\" ]; then echo 'ERROR: Video file not found'; exit 1; fi; if [ -f \\\"$AUDIO_FILE\\\" ] && [ -s \\\"$AUDIO_FILE\\\" ]; then echo 'Combining video and audio...'; ffmpeg -y -loglevel error -i \\\"$VIDEO_FILE\\\" -i \\\"$AUDIO_FILE\\\" -c copy -shortest \\\"$OUTPUT_FILE\\\" || cp \\\"$VIDEO_FILE\\\" \\\"$OUTPUT_FILE\\\"; else echo 'Video only...'; cp \\\"$VIDEO_FILE\\\" \\\"$OUTPUT_FILE\\\"; fi; echo 'Processing completed'\"`;\n\nreturn [{\n  json: {\n    ...item.json,\n    resolved_command: command\n  }\n}];"
       },
       "id": "CreateScript",
       "name": "CreateScript",
-      "type": "n8n-nodes-base.writeBinaryFile",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [850, 360]
     },
     {
