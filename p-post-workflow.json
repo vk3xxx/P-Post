@@ -204,7 +204,17 @@
     },
     {
       "parameters": {
-        "command": "curl -L -o /tmp/n8n_video_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4 -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' -H 'Referer: https://www.reddit.com/' -H 'Accept: */*' -H 'Accept-Language: en-US,en;q=0.9' -H 'Accept-Encoding: gzip, deflate, br' -H 'Sec-Fetch-Dest: video' -H 'Sec-Fetch-Mode: no-cors' -H 'Sec-Fetch-Site: cross-site' -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' --connect-timeout 30 --max-time 120 '{{$json.media_url}}'"
+        "jsCode": "// Build the curl command with resolved values\nconst item = $input.item;\nconsole.log('=== BUILDING CURL COMMAND ===');\n\nconst { id, media_type, slide, media_url } = item.json;\nconsole.log('Building command for:', { id, media_type, slide, media_url });\n\n// Build the complete curl command with resolved values\nconst curlCommand = `curl -L -o /tmp/n8n_video_${id}_${media_type}_${slide}.mp4 -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' -H 'Referer: https://www.reddit.com/' -H 'Accept: */*' -H 'Accept-Language: en-US,en;q=0.9' -H 'Accept-Encoding: gzip, deflate, br' -H 'Sec-Fetch-Dest: video' -H 'Sec-Fetch-Mode: no-cors' -H 'Sec-Fetch-Site: cross-site' -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' --connect-timeout 30 --max-time 120 '${media_url}'`;\n\nconsole.log('Built curl command:', curlCommand);\n\n// Pass through the data with the resolved command\nreturn [{\n  json: {\n    id,\n    media_type,\n    slide,\n    chat_id: item.json.chat_id,\n    caption: item.json.caption,\n    media_url,\n    reddit_post_id: item.json.reddit_post_id,\n    reddit_api_data: item.json.reddit_api_data,\n    use_reddit_api: true,\n    resolved_curl_command: curlCommand\n  }\n}];"
+      },
+      "id": "BuildCurlCommand",
+      "name": "BuildCurlCommand",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "command": "={{$json.resolved_curl_command}}"
       },
       "id": "DLVideo",
       "name": "DLVideo",
@@ -317,7 +327,8 @@
     "DebugDLVideo": { "main": [[{ "node": "SmartDownload", "type": "main", "index": 0 }]] },
     "SmartDownload": { "main": [[{ "node": "RedditAPI", "type": "main", "index": 0 }]] },
     "RedditAPI": { "main": [[{ "node": "ProcessRedditAPI", "type": "main", "index": 0 }]] },
-    "ProcessRedditAPI": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }]] },
+    "ProcessRedditAPI": { "main": [[{ "node": "BuildCurlCommand", "type": "main", "index": 0 }]] },
+    "BuildCurlCommand": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }]] },
     "DLVideo": { "main": [[{ "node": "DebugWriteVideo", "type": "main", "index": 0 }]] },
     "DebugWriteVideo": { "main": [[{ "node": "ProcessVideo", "type": "main", "index": 0 }]] },
     "ProcessVideo": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
