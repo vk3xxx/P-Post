@@ -153,6 +153,8 @@
     {
       "parameters": {
         "url": "={{$json.media_url}}",
+        "responseFormat": "file",
+        "binaryPropertyName": "video",
         "options": {
           "timeout": 120000
         }
@@ -166,6 +168,8 @@
     {
       "parameters": {
         "url": "={{$json.audio_url}}",
+        "responseFormat": "file",
+        "binaryPropertyName": "audio",
         "options": {
           "timeout": 120000
         }
@@ -190,7 +194,7 @@
     {
       "parameters": {
         "fileName": "=/tmp/n8n_video_{{$json.id}}.mp4",
-        "options": {}
+        "binaryPropertyName": "video"
       },
       "id": "WriteVideo",
       "name": "WriteVideo",
@@ -201,7 +205,7 @@
     {
       "parameters": {
         "fileName": "=/tmp/n8n_audio_{{$json.id}}.mp4",
-        "options": {}
+        "binaryPropertyName": "audio"
       },
       "id": "WriteAudio",
       "name": "WriteAudio",
@@ -221,7 +225,8 @@
     },
     {
       "parameters": {
-        "filePath": "=/tmp/n8n_mux_{{$json.id}}.mp4"
+        "filePath": "=/tmp/n8n_mux_{{$json.id}}.mp4",
+        "binaryPropertyName": "data"
       },
       "id": "ReadMux",
       "name": "ReadMux",
@@ -296,7 +301,7 @@
     },
     "DLVideo": { "main": [[{ "node": "CombineMedia", "type": "main", "index": 0 }]] },
     "DLAudio": { "main": [[{ "node": "CombineMedia", "type": "main", "index": 1 }]] },
-    "CombineMedia": { "main": [[{ "node": "WriteVideo", "type": "main", "index": 0 }, { "node": "WriteVideo", "type": "main", "index": 0 }]] },
+    "CombineMedia": { "main": [[{ "node": "WriteVideo", "type": "main", "index": 0 }, { "node": "WriteAudio", "type": "main", "index": 0 }]] },
     "WriteVideo": { "main": [[{ "node": "Mux", "type": "main", "index": 0 }]] },
     "WriteAudio": { "main": [[{ "node": "Mux", "type": "main", "index": 0 }]] },
     "Mux": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
