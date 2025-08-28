@@ -34,6 +34,36 @@
 - Verify bot permissions
 - Ensure video format is supported (MP4 recommended)
 
+## Common Image Posting Issues
+
+### 1. Missing Telegram Credentials
+
+**Problem**: "Node does not have any credentials set" error
+**Solution**:
+1. In the SendPhoto node, click on "Credential to connect with"
+2. Select "Create New" → "Telegram Account"
+3. Enter your bot token (get from @BotFather)
+4. Test the connection
+5. Save the credential
+
+### 2. Empty Photo Field
+
+**Problem**: Photo field is empty in SendPhoto node
+**Solution**:
+1. Verify the Photo field contains: `={{$json.media_url}}`
+2. Check that the field is not accidentally cleared
+3. Ensure the expression syntax is correct (no extra spaces)
+4. Re-import the workflow if the field got corrupted
+
+### 3. Photo Field Shows "undefined"
+
+**Problem**: Photo field resolves to "undefined"
+**Solution**:
+1. Check that ExtractMedia node is properly extracting media_url
+2. Verify the data flow through all nodes
+3. Test with a single image post first
+4. Check n8n execution logs for data transformation issues
+
 ## Critical Fix Applied
 
 The original workflow had a connection error in the CombineMedia node. The connections were:
@@ -69,3 +99,13 @@ Enable debug logging in n8n:
 1. Set environment variable: `N8N_LOG_LEVEL=debug`
 2. Check execution details in n8n interface
 3. Monitor system resources during execution
+
+## Quick Fix Checklist
+
+If images aren't posting:
+
+1. ✅ **Telegram Credentials**: Set up bot token in SendPhoto node
+2. ✅ **Photo Field**: Ensure it contains `={{$json.media_url}}`
+3. ✅ **Data Flow**: Verify media_url is present in input data
+4. ✅ **Node Type**: Confirm SendPhoto is a Telegram node
+5. ✅ **Workflow Import**: Re-import if fields got corrupted
