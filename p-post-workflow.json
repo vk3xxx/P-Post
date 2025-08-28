@@ -193,7 +193,7 @@
     },
     {
       "parameters": {
-        "fileName": "=/tmp/n8n_video_{{$json.id}}.mp4",
+        "fileName": "=/tmp/n8n_video_$ITEM_INDEX.mp4",
         "binaryPropertyName": "video"
       },
       "id": "WriteVideo",
@@ -204,7 +204,7 @@
     },
     {
       "parameters": {
-        "fileName": "=/tmp/n8n_audio_{{$json.id}}.mp4",
+        "fileName": "=/tmp/n8n_audio_$ITEM_INDEX.mp4",
         "binaryPropertyName": "audio"
       },
       "id": "WriteAudio",
@@ -215,7 +215,7 @@
     },
     {
       "parameters": {
-        "command": "bash -lc \"set -e; if [ -s /tmp/n8n_audio_{{$json.id}}.mp4 ]; then ffmpeg -y -loglevel error -i /tmp/n8n_video_{{$json.id}}.mp4 -i /tmp/n8n_audio_{{$json.id}}.mp4 -c copy -shortest /tmp/n8n_mux_{{$json.id}}.mp4; else cp /tmp/n8n_video_{{$json.id}}.mp4 /tmp/n8n_mux_{{$json.id}}.mp4; fi\""
+        "command": "bash -lc \"set -e; if [ -s /tmp/n8n_audio_$ITEM_INDEX.mp4 ]; then ffmpeg -y -loglevel error -i /tmp/n8n_video_$ITEM_INDEX.mp4 -i /tmp/n8n_audio_$ITEM_INDEX.mp4 -c copy -shortest /tmp/n8n_mux_$ITEM_INDEX.mp4; else cp /tmp/n8n_video_$ITEM_INDEX.mp4 /tmp/n8n_mux_$ITEM_INDEX.mp4; fi\""
       },
       "id": "Mux",
       "name": "Mux",
@@ -225,7 +225,7 @@
     },
     {
       "parameters": {
-        "filePath": "=/tmp/n8n_mux_{{$json.id}}.mp4",
+        "filePath": "=/tmp/n8n_mux_$ITEM_INDEX.mp4",
         "binaryPropertyName": "data"
       },
       "id": "ReadMux",
@@ -261,7 +261,7 @@
     },
     {
       "parameters": {
-        "command": "bash -lc \"rm -f /tmp/n8n_*_{{$json.id}}.mp4 || true\""
+        "command": "bash -lc \"rm -f /tmp/n8n_*_$ITEM_INDEX.mp4 || true\""
       },
       "id": "Cleanup",
       "name": "Cleanup",
