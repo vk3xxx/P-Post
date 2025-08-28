@@ -59,28 +59,28 @@
       },
       "id": "ExtractMedia",
       "name": "ExtractMedia",
-      "type": "n8n-nodes-base.function",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [-1040, 200]
     },
     {
       "parameters": {
-        "functionCode": "const state = $getWorkflowStaticData('global'); if(!state.posted) state.posted={}; const ttl=($node['Vars'].json['memory_ttl_days']||60)*24*60*60*1000; const now=Date.now(); for(const [k,t] of Object.entries(state.posted)){ if(!t||now-t>ttl) delete state.posted[k]; } const fresh=[]; for(const it of items){ const k=it.json.key||it.json.media_url||it.json.id; if(!k) continue; if(!state.posted[k]){ state.posted[k]=now; fresh.push(it);} } return fresh;"
+        "functionCode": "const state = $getWorkflowStaticData('global');\nif(!state.posted) state.posted={};\nconst ttl=($node['Vars'].json['memory_ttl_days']||60)*24*60*60*1000;\nconst now=Date.now();\nfor(const [k,t] of Object.entries(state.posted)){\n  if(!t||now-t>ttl) delete state.posted[k];\n}\nconst fresh=[];\nfor(const it of items){\n  const k=it.json.key||it.json.media_url||it.json.id;\n  if(!k) continue;\n  if(!state.posted[k]){\n    state.posted[k]=now;\n    fresh.push(it);\n  }\n}\nreturn fresh;"
       },
       "id": "Deduplicate",
       "name": "Deduplicate",
-      "type": "n8n-nodes-base.function",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [-820, 200]
     },
     {
       "parameters": {
-        "functionCode": "return items.map(it=>{ const j=it.json; j.caption = j.total>1 ? `${j.title} [${j.slide}/${j.total}]\\n${j.permalink}` : `${j.title}\\n${j.permalink}`; return {json:j}; });"
+        "functionCode": "return items.map(it => {\n  const j = it.json;\n  j.caption = j.total > 1 ? `${j.title} [${j.slide}/${j.total}]\\n${j.permalink}` : `${j.title}\\n${j.permalink}`;\n  return { json: j };\n});"
       },
       "id": "CaptionBuilder",
       "name": "CaptionBuilder",
-      "type": "n8n-nodes-base.function",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [-620, 200]
     },
     {
