@@ -152,7 +152,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Enterprise-grade video processor that handles both audio+video and video-only cases\nconst item = $input.item.json;\n\n// For n8n Code node, we'll return the item with processing instructions\n// The actual downloading will be handled by separate HTTP Request nodes\nconst output = {\n  json: {\n    ...item,\n    needs_video_download: true,\n    needs_audio_download: item.audio_url && item.audio_url !== 'null' && item.audio_url !== 'undefined',\n    processing_status: 'ready_for_download'\n  }\n};\n\nreturn [output];"
+        "jsCode": "// Enterprise-grade video processor that intelligently routes based on audio availability\nconst item = $input.item.json;\n\n// Check if audio URL exists and is valid\nconst hasValidAudio = item.audio_url && \n  item.audio_url !== 'null' && \n  item.audio_url !== 'undefined' && \n  item.audio_url !== '[null]' &&\n  typeof item.audio_url === 'string' &&\n  item.audio_url.length > 0;\n\n// Create output with intelligent routing flags\nconst output = {\n  json: {\n    ...item,\n    needs_video_download: true,\n    needs_audio_download: hasValidAudio,\n    has_audio: hasValidAudio,\n    processing_status: 'ready_for_download',\n    audio_available: hasValidAudio\n  }\n};\n\nreturn [output];"
       },
       "id": "VideoProcessor",
       "name": "VideoProcessor",
@@ -174,6 +174,35 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition1",
+              "leftValue": "={{$json.needs_audio_download}}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equal"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "IfAudio",
+      "name": "IfAudio",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [400, 300]
     },
     {
       "parameters": {
@@ -225,7 +254,7 @@
     },
     {
       "parameters": {
-        "command": "bash -lc \"set -e; VIDEO_FILE='/tmp/n8n_video_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'; AUDIO_FILE='/tmp/n8n_audio_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'; OUTPUT_FILE='/tmp/n8n_mux_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'; if [ -s \"$AUDIO_FILE\" ] && [ -s \"$VIDEO_FILE\" ]; then ffmpeg -y -loglevel error -i \"$VIDEO_FILE\" -i \"$AUDIO_FILE\" -c copy -shortest \"$OUTPUT_FILE\"; echo 'Video and audio combined successfully'; elif [ -s \"$VIDEO_FILE\" ]; then cp \"$VIDEO_FILE\" \"$OUTPUT_FILE\"; echo 'Video copied (no audio)'; else echo 'No video file found'; exit 1; fi\""
+        "command": "bash -lc \"set -e; VIDEO_FILE='/tmp/n8n_video_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'; AUDIO_FILE='/tmp/n8n_audio_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'; OUTPUT_FILE='/tmp/n8n_mux_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'; echo 'Processing video: $VIDEO_FILE'; if [ ! -s \"$VIDEO_FILE\" ]; then echo 'ERROR: Video file not found or empty'; exit 1; fi; if [ -s \"$AUDIO_FILE\" ]; then echo 'Audio file found, combining with video...'; ffmpeg -y -loglevel error -i \"$VIDEO_FILE\" -i \"$AUDIO_FILE\" -c copy -shortest \"$OUTPUT_FILE\"; echo 'Video and audio combined successfully'; else echo 'No audio file, copying video only...'; cp \"$VIDEO_FILE\" \"$OUTPUT_FILE\"; echo 'Video copied (no audio)'; fi; echo 'Processing completed successfully'\""
       },
       "id": "Mux",
       "name": "Mux",
@@ -307,10 +336,16 @@
     "SplitImages": { "main": [[{ "node": "SendPhoto", "type": "main", "index": 0 }]] },
     "SendPhoto": { "main": [[{ "node": "WaitImages", "type": "main", "index": 0 }]] },
     "SplitVideos": { "main": [[{ "node": "VideoProcessor", "type": "main", "index": 0 }]] },
-    "VideoProcessor": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }, { "node": "DLAudio", "type": "main", "index": 0 }]] },
+    "VideoProcessor": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }]] },
     "DLVideo": { "main": [[{ "node": "WriteVideo", "type": "main", "index": 0 }]] },
+    "WriteVideo": { "main": [[{ "node": "IfAudio", "type": "main", "index": 0 }]] },
+    "IfAudio": {
+      "main": [
+        [{ "node": "DLAudio", "type": "main", "index": 0 }],
+        [{ "node": "CombineMedia", "type": "main", "index": 0 }]
+      ]
+    },
     "DLAudio": { "main": [[{ "node": "WriteAudio", "type": "main", "index": 0 }]] },
-    "WriteVideo": { "main": [[{ "node": "CombineMedia", "type": "main", "index": 0 }]] },
     "WriteAudio": { "main": [[{ "node": "CombineMedia", "type": "main", "index": 1 }]] },
     "CombineMedia": { "main": [[{ "node": "Mux", "type": "main", "index": 0 }]] },
     "Mux": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
