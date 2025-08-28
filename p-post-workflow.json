@@ -150,16 +150,7 @@
       "typeVersion": 1,
       "position": [-220, 340]
     },
-    {
-      "parameters": {
-        "jsCode": "// Enterprise-grade video processor that intelligently routes based on audio availability\nconst item = $input.item.json;\n\n// Check if audio URL exists and is valid\nconst hasValidAudio = item.audio_url && \n  item.audio_url !== 'null' && \n  item.audio_url !== 'undefined' && \n  item.audio_url !== '[null]' &&\n  typeof item.audio_url === 'string' &&\n  item.audio_url.length > 0;\n\n// Create output with intelligent routing flags\nconst output = {\n  json: {\n    ...item,\n    needs_video_download: true,\n    needs_audio_download: hasValidAudio,\n    has_audio: hasValidAudio,\n    processing_status: 'ready_for_download',\n    audio_available: hasValidAudio\n  }\n};\n\nreturn [output];"
-      },
-      "id": "VideoProcessor",
-      "name": "VideoProcessor",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [0, 300]
-    },
+
     {
       "parameters": {
         "url": "={{$json.media_url}}",
