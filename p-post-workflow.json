@@ -254,7 +254,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Enterprise-grade video processing with proper file handling\nconst item = $input.item;\nconst fs = require('fs');\nconst { execSync } = require('child_process');\nconst path = require('path');\n\n// Validate input data\nif (!item || !item.json) {\n  throw new Error('Invalid input: Missing JSON data');\n}\n\nconst { id, media_type, slide } = item.json;\n\n// Define file paths\nconst videoFile = `/tmp/n8n_video_${id}_${media_type}_${slide}.mp4`;\nconst audioFile = `/tmp/n8n_audio_${id}_${media_type}_${slide}.mp4`;\nconst outputFile = `/tmp/n8n_mux_${id}_${media_type}_${slide}.mp4`;\n\nconsole.log(`Processing video: ${videoFile}`);\nconsole.log(`Audio file: ${audioFile}`);\nconsole.log(`Output file: ${outputFile}`);\n\n// Check if video file exists and has content\nif (!fs.existsSync(videoFile) || fs.statSync(videoFile).size === 0) {\n  throw new Error(`Video file not found or empty: ${videoFile}`);\n}\n\n// Check if audio file exists and has content\nconst hasAudio = fs.existsSync(audioFile) && fs.statSync(audioFile).size > 0;\n\nif (hasAudio) {\n  console.log('Audio file found, combining with video...');\n  try {\n    // Use FFmpeg to combine video and audio\n    const ffmpegCmd = `ffmpeg -y -loglevel error -i \"${videoFile}\" -i \"${audioFile}\" -c copy -shortest \"${outputFile}\"`;\n    execSync(ffmpegCmd, { stdio: 'pipe' });\n    console.log('Video and audio combined successfully');\n  } catch (error) {\n    console.error('FFmpeg failed:', error.message);\n    // Fallback: copy video only\n    console.log('Falling back to video copy...');\n    execSync(`cp \"${videoFile}\" \"${outputFile}\"`, { stdio: 'pipe' });\n  }\n} else {\n  console.log('No audio file, copying video only...');\n  execSync(`cp \"${videoFile}\" \"${outputFile}\"`, { stdio: 'pipe' });\n}\n\n// Verify output file was created\nif (!fs.existsSync(outputFile) || fs.statSync(outputFile).size === 0) {\n  throw new Error(`Output file creation failed: ${outputFile}`);\n}\n\nconsole.log('Video processing completed successfully');\n\n// Return the item with updated file path\nreturn [{\n  json: {\n    ...item.json,\n    processed_video_path: outputFile\n  }\n}];"
+        "jsCode": "// Simple data pass-through for video processing\nconst item = $input.item;\n\n// Just pass the data through - the actual processing will be done by the ExecuteCommand node\n// This avoids the sandbox limitations of the Code node\nreturn [{\n  json: {\n    ...item.json,\n    needs_processing: true\n  }\n}];"
       },
       "id": "Mux",
       "name": "Mux",
@@ -264,7 +264,17 @@
     },
     {
       "parameters": {
-        "filePath": "={{$json.processed_video_path}}",
+        "command": "bash -lc \"set -e; ID='{{$json.id}}'; TYPE='{{$json.media_type}}'; SLIDE='{{$json.slide}}'; VIDEO_FILE='/tmp/n8n_video_${ID}_${TYPE}_${SLIDE}.mp4'; AUDIO_FILE='/tmp/n8n_audio_${ID}_${TYPE}_${SLIDE}.mp4'; OUTPUT_FILE='/tmp/n8n_mux_${ID}_${TYPE}_${SLIDE}.mp4'; echo 'Processing video: $VIDEO_FILE'; if [ ! -s \\\"$VIDEO_FILE\\\" ]; then echo 'ERROR: Video file not found'; exit 1; fi; if [ -s \\\"$AUDIO_FILE\\\" ]; then echo 'Audio file found, combining...'; ffmpeg -y -loglevel error -i \\\"$VIDEO_FILE\\\" -i \\\"$AUDIO_FILE\\\" -c copy -shortest \\\"$OUTPUT_FILE\\\"; else echo 'No audio file, copying video only...'; cp \\\"$VIDEO_FILE\\\" \\\"$OUTPUT_FILE\\\"; fi; echo 'Processing completed'\""
+      },
+      "id": "VideoProcessor",
+      "name": "VideoProcessor",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [900, 360]
+    },
+    {
+      "parameters": {
+        "filePath": "=/tmp/n8n_mux_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4",
         "binaryPropertyName": "data"
       },
       "id": "ReadMux",
@@ -348,7 +358,8 @@
     "DLAudio": { "main": [[{ "node": "WriteAudio", "type": "main", "index": 0 }]] },
     "WriteAudio": { "main": [[{ "node": "CombineMedia", "type": "main", "index": 1 }]] },
     "CombineMedia": { "main": [[{ "node": "Mux", "type": "main", "index": 0 }]] },
-    "Mux": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
+    "Mux": { "main": [[{ "node": "VideoProcessor", "type": "main", "index": 0 }]] },
+    "VideoProcessor": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
     "ReadMux": { "main": [[{ "node": "MergeVideoData", "type": "main", "index": 0 }]] },
     "MergeVideoData": { "main": [[{ "node": "SendVideo", "type": "main", "index": 0 }]] },
     "SendVideo": { "main": [[{ "node": "Cleanup", "type": "main", "index": 0 }]] },
