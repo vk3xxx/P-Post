@@ -1,6 +1,6 @@
 {
   "name": "P-Post_Content_Automation",
-  "comment": "TODO: Fix rate_seconds variable passing - currently hardcoded to 45 seconds in WaitImages and WaitVideos nodes. The $json.rate_seconds expression is not resolving correctly, possibly due to data flow issues through the workflow nodes.",
+  "comment": "TODO: Fix rate_seconds variable passing - currently hardcoded to 45 seconds in WaitImages and WaitVideos nodes. The $json.rate_seconds expression is not resolving correctly, possibly due to data flow issues through the workflow nodes. TODO: Verify SendPhoto media_url expression is working correctly - may need manual configuration in n8n interface.",
   "nodes": [
     {
       "parameters": {},
@@ -215,6 +215,16 @@
     },
     {
       "parameters": {
+        "jsCode": "// Merge binary video data with original JSON data\nconst originalData = $input.item.json;\nconst binaryData = $input.item.binary;\n\n// Create new item with both data and binary\nreturn [{\n  json: originalData,\n  binary: binaryData\n}];"
+      },
+      "id": "MergeVideoData",
+      "name": "MergeVideoData",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 360]
+    },
+    {
+      "parameters": {
         "resource": "message",
         "operation": "sendVideo",
         "chatId": "={{$json.chat_id}}",
@@ -274,7 +284,8 @@
     "WriteVideo": { "main": [[{ "node": "Mux", "type": "main", "index": 0 }]] },
     "WriteAudio": { "main": [[{ "node": "Mux", "type": "main", "index": 0 }]] },
     "Mux": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
-    "ReadMux": { "main": [[{ "node": "SendVideo", "type": "main", "index": 0 }]] },
+    "ReadMux": { "main": [[{ "node": "MergeVideoData", "type": "main", "index": 0 }]] },
+    "MergeVideoData": { "main": [[{ "node": "SendVideo", "type": "main", "index": 0 }]] },
     "SendVideo": { "main": [[{ "node": "Cleanup", "type": "main", "index": 0 }]] },
     "Cleanup": { "main": [[{ "node": "WaitVideos", "type": "main", "index": 0 }]] }
   }
