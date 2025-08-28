@@ -248,7 +248,7 @@
       "parameters": {
         "operation": "sendVideo",
         "chatId": "={{$json.chat_id}}",
-        "binaryData": true,
+        "file": "={{$json.media_url}}",
         "additionalFields": {
           "caption": "={{$json.caption}}"
         }
@@ -293,13 +293,7 @@
     },
     "SplitImages": { "main": [[{ "node": "SendPhoto", "type": "main", "index": 0 }]] },
     "SendPhoto": { "main": [[{ "node": "WaitImages", "type": "main", "index": 0 }]] },
-    "SplitVideos": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }]] },
-    "DLVideo": { "main": [[{ "node": "WriteVideo", "type": "main", "index": 0 }]] },
-    "WriteVideo": { "main": [[{ "node": "Mux", "type": "main", "index": 0 }]] },
-    "Mux": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
-    "ReadMux": { "main": [[{ "node": "MergeVideoData", "type": "main", "index": 0 }]] },
-    "MergeVideoData": { "main": [[{ "node": "SendVideo", "type": "main", "index": 0 }]] },
-    "SendVideo": { "main": [[{ "node": "Cleanup", "type": "main", "index": 0 }]] },
-    "Cleanup": { "main": [[{ "node": "WaitVideos", "type": "main", "index": 0 }]] }
+    "SplitVideos": { "main": [[{ "node": "SendVideo", "type": "main", "index": 0 }]] },
+    "SendVideo": { "main": [[{ "node": "WaitVideos", "type": "main", "index": 0 }]] }
   }
 }
