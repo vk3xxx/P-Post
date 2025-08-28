@@ -107,10 +107,24 @@
     },
     {
       "parameters": {
+        "url": "={{$json.media_url}}",
+        "responseFormat": "file",
+        "binaryPropertyName": "image",
+        "options": { "timeout": 60000, "followRedirect": true }
+      },
+      "id": "DLImage",
+      "name": "DLImage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [-110, 60]
+    },
+    {
+      "parameters": {
         "resource": "message",
         "operation": "sendPhoto",
         "chatId": "={{$json.chat_id}}",
-        "photo": "={{$json.media_url}}",
+        "binaryData": true,
+        "photo": "image",
         "additionalFields": { "caption": "={{$json.caption}}" }
       },
       "id": "SendPhoto",
@@ -259,7 +273,8 @@
         [{ "node": "SplitImages", "type": "main", "index": 0 }]
       ]
     },
-    "SplitImages": { "main": [[{ "node": "SendPhoto", "type": "main", "index": 0 }]] },
+    "SplitImages": { "main": [[{ "node": "DLImage", "type": "main", "index": 0 }]] },
+    "DLImage": { "main": [[{ "node": "SendPhoto", "type": "main", "index": 0 }]] },
     "SendPhoto": { "main": [[{ "node": "WaitImages", "type": "main", "index": 0 }]] },
     "SplitVideos": {
       "main": [
