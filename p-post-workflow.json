@@ -257,7 +257,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Video processing using child_process (if available) or fallback to command execution\nconst item = $input.item;\nconst { id, media_type, slide, resolved_command } = item.json;\n\n// For now, just pass through the data since we can't execute commands in Code nodes\n// The actual video processing will need to be handled differently\nconsole.log('Video processing requested for:', { id, media_type, slide });\nconsole.log('Command would be:', resolved_command);\n\n// Return the data for ReadMux to use\nreturn [{\n  json: {\n    id,\n    media_type,\n    slide,\n    chat_id: item.json.chat_id,\n    caption: item.json.caption,\n    needs_video_processing: true\n  }\n}];"
+        "jsCode": "// Simple data pass-through - video processing handled by ExecuteCommand\nconst item = $input.item;\nconst { id, media_type, slide, chat_id, caption } = item.json;\n\n// Pass through essential data for the next node\nreturn [{\n  json: {\n    id,\n    media_type,\n    slide,\n    chat_id,\n    caption,\n    needs_video_processing: true\n  }\n}];"
       },
       "id": "VideoProcessor",
       "name": "VideoProcessor",
@@ -267,14 +267,15 @@
     },
     {
       "parameters": {
-        "jsCode": "// Memory-efficient video processing - process one item at a time\nconst item = $input.item;\nconst { id, media_type, slide } = item.json;\n\n// Validate required fields\nif (!id || !media_type || !slide) {\n  console.log('Missing required fields, skipping');\n  return [{\n    json: {\n      ...item.json,\n      needs_video_processing: false,\n      error: 'Missing required fields'\n    }\n  }];\n}\n\n// Simple command to avoid memory issues\nconst command = `ffmpeg -y -i /tmp/n8n_video_${id}_${media_type}_${slide}.mp4 -c copy /tmp/n8n_mux_${id}_${media_type}_${slide}.mp4`;\n\n// Return minimal data to reduce memory usage\nreturn [{\n  json: {\n    id,\n    media_type,\n    slide,\n    chat_id: item.json.chat_id,\n    caption: item.json.caption,\n    resolved_command: command,\n    needs_video_processing: true\n  }\n}];"
+        "command": "bash -c \"set -e; ID='{{$json.id}}'; TYPE='{{$json.media_type}}'; SLIDE='{{$json.slide}}'; VIDEO_FILE='/tmp/n8n_video_${ID}_${TYPE}_${SLIDE}.mp4'; OUTPUT_FILE='/tmp/n8n_mux_${ID}_${TYPE}_${SLIDE}.mp4'; echo 'Processing video: $VIDEO_FILE'; if [ ! -s \\\"$VIDEO_FILE\\\" ]; then echo 'ERROR: Video file not found'; exit 1; fi; echo 'Copying video to output...'; cp \\\"$VIDEO_FILE\\\" \\\"$OUTPUT_FILE\\\"; echo 'Video processing completed'\""
       },
-      "id": "CreateScript",
-      "name": "CreateScript",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [850, 360]
+      "id": "ProcessVideo",
+      "name": "ProcessVideo",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [950, 360]
     },
+
     {
       "parameters": {
         "filePath": "=/tmp/n8n_mux_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4",
@@ -361,9 +362,9 @@
     "DLAudio": { "main": [[{ "node": "WriteAudio", "type": "main", "index": 0 }]] },
     "WriteAudio": { "main": [[{ "node": "CombineMedia", "type": "main", "index": 1 }]] },
     "CombineMedia": { "main": [[{ "node": "Mux", "type": "main", "index": 0 }]] },
-    "Mux": { "main": [[{ "node": "CreateScript", "type": "main", "index": 0 }]] },
-    "CreateScript": { "main": [[{ "node": "VideoProcessor", "type": "main", "index": 0 }]] },
-    "VideoProcessor": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
+    "Mux": { "main": [[{ "node": "VideoProcessor", "type": "main", "index": 0 }]] },
+    "VideoProcessor": { "main": [[{ "node": "ProcessVideo", "type": "main", "index": 0 }]] },
+    "ProcessVideo": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
     "ReadMux": { "main": [[{ "node": "MergeVideoData", "type": "main", "index": 0 }]] },
     "MergeVideoData": { "main": [[{ "node": "SendVideo", "type": "main", "index": 0 }]] },
     "SendVideo": { "main": [[{ "node": "Cleanup", "type": "main", "index": 0 }]] },
