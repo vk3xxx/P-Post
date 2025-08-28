@@ -204,47 +204,20 @@
     },
     {
       "parameters": {
-        "url": "={{$json.media_url}}",
-        "responseFormat": "file",
-        "binaryPropertyName": "video",
-        "options": {
-          "timeout": 120000,
-          "headers": {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Referer": "https://www.reddit.com/",
-            "Accept": "*/*",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Accept-Encoding": "gzip, deflate, br",
-            "Sec-Fetch-Dest": "video",
-            "Sec-Fetch-Mode": "no-cors",
-            "Sec-Fetch-Site": "cross-site",
-            "Cache-Control": "no-cache",
-            "Pragma": "no-cache"
-          }
-        }
+        "command": "curl -L -o /tmp/n8n_video_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4 -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' -H 'Referer: https://www.reddit.com/' -H 'Accept: */*' -H 'Accept-Language: en-US,en;q=0.9' -H 'Accept-Encoding: gzip, deflate, br' -H 'Sec-Fetch-Dest: video' -H 'Sec-Fetch-Mode: no-cors' -H 'Sec-Fetch-Site: cross-site' -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' --connect-timeout 30 --max-time 120 '{{$json.media_url}}'"
       },
       "id": "DLVideo",
       "name": "DLVideo",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
       "position": [200, 300]
     },
 
 
+
     {
       "parameters": {
-        "fileName": "=/tmp/n8n_video_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4",
-        "binaryPropertyName": "video"
-      },
-      "id": "WriteVideo",
-      "name": "WriteVideo",
-      "type": "n8n-nodes-base.writeBinaryFile",
-      "typeVersion": 1,
-      "position": [400, 300]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Debug what WriteVideo is actually doing\nconst item = $input.item;\nconsole.log('=== DEBUG WRITEVIDEO ===');\nconsole.log('Item JSON:', JSON.stringify(item.json, null, 2));\nconsole.log('Binary properties:', Object.keys(item.binary || {}));\nconsole.log('Video binary size:', item.binary?.video?.data?.length || 'No video data');\nconsole.log('File path would be:', `/tmp/n8n_video_${item.json.id}_${item.json.media_type}_${item.json.slide}.mp4`);\n\n// Check if we have the required fields\nif (!item.json.id || !item.json.media_type || !item.json.slide) {\n  console.log('ERROR: Missing required fields');\n  throw new Error('Missing required fields for video processing');\n}\n\n// Check if we have binary video data\nif (!item.binary?.video) {\n  console.log('ERROR: No binary video data');\n  throw new Error('No binary video data received from DLVideo');\n}\n\nconsole.log('WriteVideo should create file successfully');\n\n// Pass through the data\nreturn [{\n  json: {\n    id: item.json.id,\n    media_type: item.json.media_type,\n    slide: item.json.slide,\n    chat_id: item.json.chat_id,\n    caption: item.json.caption\n  },\n  binary: item.binary\n}];"
+        "jsCode": "// Debug what WriteVideo is actually doing\nconst item = $input.item;\nconsole.log('=== DEBUG WRITEVIDEO ===');\nconsole.log('Item JSON:', JSON.stringify(item.json, null, 2));\nconsole.log('File path would be:', `/tmp/n8n_video_${item.json.id}_${item.json.media_type}_${item.json.slide}.mp4`);\n\n// Check if we have the required fields\nif (!item.json.id || !item.json.media_type || !item.json.slide) {\n  console.log('ERROR: Missing required fields');\n  throw new Error('Missing required fields for video processing');\n}\n\n// Since DLVideo now uses curl to download directly to /tmp/, we don't need binary data\n// We just need to pass through the JSON data for the next node\nconsole.log('DLVideo should have downloaded video file to /tmp/');\n\n// Pass through the data (no binary needed since file is already on disk)\nreturn [{\n  json: {\n    id: item.json.id,\n    media_type: item.json.media_type,\n    slide: item.json.slide,\n    chat_id: item.json.chat_id,\n    caption: item.json.caption\n  }\n}];"
       },
       "id": "DebugWriteVideo",
       "name": "DebugWriteVideo",
@@ -345,8 +318,7 @@
     "SmartDownload": { "main": [[{ "node": "RedditAPI", "type": "main", "index": 0 }]] },
     "RedditAPI": { "main": [[{ "node": "ProcessRedditAPI", "type": "main", "index": 0 }]] },
     "ProcessRedditAPI": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }]] },
-    "DLVideo": { "main": [[{ "node": "WriteVideo", "type": "main", "index": 0 }]] },
-    "WriteVideo": { "main": [[{ "node": "DebugWriteVideo", "type": "main", "index": 0 }]] },
+    "DLVideo": { "main": [[{ "node": "DebugWriteVideo", "type": "main", "index": 0 }]] },
     "DebugWriteVideo": { "main": [[{ "node": "ProcessVideo", "type": "main", "index": 0 }]] },
     "ProcessVideo": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
     "ReadMux": { "main": [[{ "node": "MergeVideoData", "type": "main", "index": 0 }]] },
