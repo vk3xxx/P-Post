@@ -152,13 +152,43 @@
     },
     {
       "parameters": {
-        "jsCode": "// Enterprise-grade video processor that handles both audio+video and video-only cases\nconst item = $input.item.json;\n\n// Download video first\nconst videoResponse = await fetch(item.media_url);\nif (!videoResponse.ok) {\n  throw new Error(`Failed to download video: ${videoResponse.status} ${videoResponse.statusText}`);\n}\n\nconst videoBuffer = await videoResponse.arrayBuffer();\nconst videoData = Buffer.from(videoBuffer);\n\n// Check if audio URL exists and is valid\nlet audioData = null;\nlet hasAudio = false;\n\nif (item.audio_url && item.audio_url !== 'null' && item.audio_url !== 'undefined') {\n  try {\n    const audioResponse = await fetch(item.audio_url);\n    if (audioResponse.ok) {\n      const audioBuffer = await audioResponse.arrayBuffer();\n      audioData = Buffer.from(audioBuffer);\n      hasAudio = true;\n      console.log(`Audio downloaded successfully for video ${item.id}`);\n    } else {\n      console.log(`Audio download failed for video ${item.id}: ${audioResponse.status}`);\n    }\n  } catch (error) {\n    console.log(`Audio download error for video ${item.id}: ${error.message}`);\n  }\n}\n\n// Create output with video data and audio status\nconst output = {\n  json: {\n    ...item,\n    has_audio: hasAudio,\n    video_size: videoData.length,\n    audio_size: audioData ? audioData.length : 0\n  },\n  binary: {\n    video: {\n      data: videoData,\n      fileName: `video_${item.id}.mp4`,\n      mimeType: 'video/mp4'\n    }\n  }\n};\n\n// Add audio binary if available\nif (audioData) {\n  output.binary.audio = {\n    data: audioData,\n    fileName: `audio_${item.id}.mp4`,\n    mimeType: 'video/mp4'\n  };\n}\n\nreturn [output];"
+        "jsCode": "// Enterprise-grade video processor that handles both audio+video and video-only cases\nconst item = $input.item.json;\n\n// For n8n Code node, we'll return the item with processing instructions\n// The actual downloading will be handled by separate HTTP Request nodes\nconst output = {\n  json: {\n    ...item,\n    needs_video_download: true,\n    needs_audio_download: item.audio_url && item.audio_url !== 'null' && item.audio_url !== 'undefined',\n    processing_status: 'ready_for_download'\n  }\n};\n\nreturn [output];"
       },
       "id": "VideoProcessor",
       "name": "VideoProcessor",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.media_url}}",
+        "responseFormat": "file",
+        "binaryPropertyName": "video",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "DLVideo",
+      "name": "DLVideo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.audio_url}}",
+        "responseFormat": "file",
+        "binaryPropertyName": "audio",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "DLAudio",
+      "name": "DLAudio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [200, 420]
     },
     {
       "parameters": {
@@ -169,19 +199,51 @@
       "name": "WriteVideo",
       "type": "n8n-nodes-base.writeBinaryFile",
       "typeVersion": 1,
-      "position": [200, 300]
+      "position": [400, 300]
     },
     {
       "parameters": {
-        "jsCode": "// Enterprise-grade video muxing that intelligently handles both audio+video and video-only cases\nconst item = $input.item;\n\n// Validate input\nif (!item || !item.json || !item.binary || !item.binary.video) {\n  throw new Error('Invalid input: Missing video data');\n}\n\nconst videoData = item.binary.video.data;\nconst audioData = item.binary.audio ? item.binary.audio.data : null;\nconst hasAudio = item.json.has_audio;\n\n// Create temporary file paths\nconst videoPath = `/tmp/n8n_video_${item.json.id}_${item.json.media_type}_${item.json.slide}.mp4`;\nconst audioPath = `/tmp/n8n_audio_${item.json.id}_${item.json.media_type}_${item.json.slide}.mp4`;\nconst outputPath = `/tmp/n8n_mux_${item.json.id}_${item.json.media_type}_${item.json.slide}.mp4`;\n\n// Write video file\nconst fs = require('fs');\nfs.writeFileSync(videoPath, videoData);\n\n// Write audio file if available\nif (audioData && hasAudio) {\n  fs.writeFileSync(audioPath, audioData);\n}\n\n// Mux video and audio if both exist, otherwise just copy video\nlet muxCommand;\nif (audioData && hasAudio && fs.existsSync(audioPath)) {\n  muxCommand = `ffmpeg -y -loglevel error -i \"${videoPath}\" -i \"${audioPath}\" -c copy -shortest \"${outputPath}\"`;\n  console.log('Muxing video with audio...');\n} else {\n  muxCommand = `cp \"${videoPath}\" \"${outputPath}\"`;\n  console.log('Copying video only (no audio)...');\n}\n\n// Execute muxing command\nconst { execSync } = require('child_process');\ntry {\n  execSync(muxCommand, { stdio: 'pipe' });\n  console.log('Video processing completed successfully');\n} catch (error) {\n  throw new Error(`Muxing failed: ${error.message}`);\n}\n\n// Read the output file and return it\nconst outputData = fs.readFileSync(outputPath);\n\n// Clean up temporary files\nfs.unlinkSync(videoPath);\nif (fs.existsSync(audioPath)) fs.unlinkSync(audioPath);\n\nreturn [{\n  json: {\n    ...item.json,\n    muxed_file: outputPath,\n    processing_status: 'completed'\n  },\n  binary: {\n    data: {\n      data: outputData,\n      fileName: `muxed_${item.json.id}.mp4`,\n      mimeType: 'video/mp4'\n    }\n  }\n}];"
+        "fileName": "=/tmp/n8n_audio_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4",
+        "binaryPropertyName": "audio"
+      },
+      "id": "WriteAudio",
+      "name": "WriteAudio",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [400, 420]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "options": {}
+      },
+      "id": "CombineMedia",
+      "name": "CombineMedia",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [600, 360]
+    },
+    {
+      "parameters": {
+        "command": "bash -lc \"set -e; VIDEO_FILE='/tmp/n8n_video_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'; AUDIO_FILE='/tmp/n8n_audio_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'; OUTPUT_FILE='/tmp/n8n_mux_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'; if [ -s \"$AUDIO_FILE\" ] && [ -s \"$VIDEO_FILE\" ]; then ffmpeg -y -loglevel error -i \"$VIDEO_FILE\" -i \"$AUDIO_FILE\" -c copy -shortest \"$OUTPUT_FILE\"; echo 'Video and audio combined successfully'; elif [ -s \"$VIDEO_FILE\" ]; then cp \"$VIDEO_FILE\" \"$OUTPUT_FILE\"; echo 'Video copied (no audio)'; else echo 'No video file found'; exit 1; fi\""
       },
       "id": "Mux",
       "name": "Mux",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [400, 300]
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [800, 360]
     },
-
+    {
+      "parameters": {
+        "filePath": "=/tmp/n8n_mux_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4",
+        "binaryPropertyName": "data"
+      },
+      "id": "ReadMux",
+      "name": "ReadMux",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [1000, 360]
+    },
     {
       "parameters": {
         "jsCode": "// Enterprise-grade data merging with validation\nconst item = $input.item;\n\n// Validate input data\nif (!item || !item.json || !item.binary) {\n  throw new Error('Invalid input: Missing JSON or binary data');\n}\n\n// Preserve all original JSON data\nconst originalData = { ...item.json };\n\n// Create new item with both data and binary\nreturn [{\n  json: originalData,\n  binary: item.binary\n}];"
@@ -190,7 +252,7 @@
       "name": "MergeVideoData",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [800, 300]
+      "position": [1200, 360]
     },
     {
       "parameters": {
@@ -218,21 +280,7 @@
       "position": [1200, 300]
     },
 
-    {
-      "parameters": {
-        "operation": "sendVideo",
-        "chatId": "={{$json.chat_id}}",
-        "file": "={{$json.media_url}}",
-        "additionalFields": {
-          "caption": "={{$json.caption}}"
-        }
-      },
-      "id": "SendVideo",
-      "name": "SendVideo",
-      "type": "n8n-nodes-base.telegram",
-      "typeVersion": 1,
-      "position": [1000, 360]
-    },
+
 
     {
       "parameters": { "amount": 45, "unit": "seconds" },
@@ -259,9 +307,14 @@
     "SplitImages": { "main": [[{ "node": "SendPhoto", "type": "main", "index": 0 }]] },
     "SendPhoto": { "main": [[{ "node": "WaitImages", "type": "main", "index": 0 }]] },
     "SplitVideos": { "main": [[{ "node": "VideoProcessor", "type": "main", "index": 0 }]] },
-    "VideoProcessor": { "main": [[{ "node": "WriteVideo", "type": "main", "index": 0 }]] },
-    "WriteVideo": { "main": [[{ "node": "Mux", "type": "main", "index": 0 }]] },
-    "Mux": { "main": [[{ "node": "MergeVideoData", "type": "main", "index": 0 }]] },
+    "VideoProcessor": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }, { "node": "DLAudio", "type": "main", "index": 0 }]] },
+    "DLVideo": { "main": [[{ "node": "WriteVideo", "type": "main", "index": 0 }]] },
+    "DLAudio": { "main": [[{ "node": "WriteAudio", "type": "main", "index": 0 }]] },
+    "WriteVideo": { "main": [[{ "node": "CombineMedia", "type": "main", "index": 0 }]] },
+    "WriteAudio": { "main": [[{ "node": "CombineMedia", "type": "main", "index": 1 }]] },
+    "CombineMedia": { "main": [[{ "node": "Mux", "type": "main", "index": 0 }]] },
+    "Mux": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
+    "ReadMux": { "main": [[{ "node": "MergeVideoData", "type": "main", "index": 0 }]] },
     "MergeVideoData": { "main": [[{ "node": "SendVideo", "type": "main", "index": 0 }]] },
     "SendVideo": { "main": [[{ "node": "Cleanup", "type": "main", "index": 0 }]] },
     "Cleanup": { "main": [[{ "node": "WaitVideos", "type": "main", "index": 0 }]] }
