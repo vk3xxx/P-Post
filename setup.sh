@@ -2,45 +2,29 @@
 
 # P-Post Setup Script
 # This script helps set up the environment for running the n8n workflow
+# Assumes n8n and FFmpeg are already installed
 
 echo "🚀 Setting up P-Post n8n workflow..."
 
-# Check if FFmpeg is installed
-if ! command -v ffmpeg &> /dev/null; then
-    echo "❌ FFmpeg not found. Installing..."
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS
-        if command -v brew &> /dev/null; then
-            brew install ffmpeg
-        else
-            echo "❌ Homebrew not found. Please install Homebrew first:"
-            echo "   /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
-            exit 1
-        fi
-    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        # Linux
-        if command -v apt-get &> /dev/null; then
-            sudo apt update && sudo apt install -y ffmpeg
-        elif command -v yum &> /dev/null; then
-            sudo yum install -y ffmpeg
-        else
-            echo "❌ Package manager not supported. Please install FFmpeg manually."
-            exit 1
-        fi
-    else
-        echo "❌ OS not supported. Please install FFmpeg manually from https://ffmpeg.org/download.html"
-        exit 1
-    fi
+# Verify FFmpeg is available
+if command -v ffmpeg &> /dev/null; then
+    echo "✅ FFmpeg found: $(ffmpeg -version | head -n1)"
 else
-    echo "✅ FFmpeg already installed: $(ffmpeg -version | head -n1)"
+    echo "❌ FFmpeg not found. Please install FFmpeg first:"
+    echo "   macOS: brew install ffmpeg"
+    echo "   Ubuntu/Debian: sudo apt install ffmpeg"
+    echo "   Windows: Download from https://ffmpeg.org/download.html"
+    exit 1
 fi
 
-# Check if n8n is installed
-if ! command -v n8n &> /dev/null; then
-    echo "📦 Installing n8n..."
-    npm install -g n8n
+# Verify n8n is available
+if command -v n8n &> /dev/null; then
+    echo "✅ n8n found: $(n8n --version)"
 else
-    echo "✅ n8n already installed: $(n8n --version)"
+    echo "❌ n8n not found. Please install n8n first:"
+    echo "   npm install -g n8n"
+    echo "   or use Docker: docker run -it --rm --name n8n -p 5678:5678 n8nio/n8n"
+    exit 1
 fi
 
 # Create config file if it doesn't exist
@@ -55,13 +39,22 @@ fi
 # Create logs directory
 mkdir -p logs
 
+# Create tmp directory if it doesn't exist (for video processing)
+if [ ! -d "/tmp" ]; then
+    echo "📁 Creating /tmp directory for video processing..."
+    sudo mkdir -p /tmp
+    sudo chmod 1777 /tmp
+else
+    echo "✅ /tmp directory exists"
+fi
+
 echo ""
 echo "🎉 Setup complete!"
 echo ""
 echo "Next steps:"
 echo "1. Edit config.yaml with your Telegram credentials"
 echo "2. Import p-post-workflow.json into n8n"
-echo "3. Configure your Telegram bot node"
+echo "3. Configure your Telegram bot node with bot token and chat ID"
 echo "4. Test the workflow with a manual trigger"
 echo ""
 echo "For troubleshooting, see TROUBLESHOOTING.md"

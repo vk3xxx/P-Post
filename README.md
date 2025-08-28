@@ -11,33 +11,28 @@ A content automation system for posting media content to various social media pl
 - **Error Handling**: Robust error handling and logging
 - **Configuration Management**: Easy-to-use configuration system
 
-## Installation
+## Prerequisites
 
-### Prerequisites
+- **n8n** (latest version) - [Installation Guide](https://docs.n8n.io/hosting/installation/)
+- **FFmpeg** (4.0+) - [Download](https://ffmpeg.org/download.html)
+- **Telegram Bot Token** - [Create Bot](https://core.telegram.org/bots#how-do-i-create-a-bot)
+- **Python 3.8+** (for custom functions if needed)
+- **Sufficient disk space** for temporary video files
 
-- Python 3.8+
-- FFmpeg (for video processing)
-- Telegram Bot Token
+## Quick Setup
 
-### Setup
-
-1. Clone the repository:
+1. **Clone the repository**:
 ```bash
 git clone https://github.com/yourusername/P-Post.git
 cd P-Post
 ```
 
-2. Install dependencies:
+2. **Run the setup script**:
 ```bash
-pip install -r requirements.txt
+./setup.sh
 ```
 
-3. Install FFmpeg:
-   - **macOS**: `brew install ffmpeg`
-   - **Ubuntu/Debian**: `sudo apt install ffmpeg`
-   - **Windows**: Download from [ffmpeg.org](https://ffmpeg.org/download.html)
-
-4. Configure your bot:
+3. **Configure your bot**:
 ```bash
 cp config.example.yaml config.yaml
 # Edit config.yaml with your settings
@@ -67,20 +62,19 @@ logging:
 
 ## Usage
 
-### Basic Usage
+### Import Workflow
 
-```bash
-python main.py
-```
+1. Open n8n in your browser (usually http://localhost:5678)
+2. Click "Import from file"
+3. Select `p-post-workflow.json`
+4. Configure the Telegram node with your bot token and chat ID
+5. Save and activate the workflow
 
-### Advanced Usage
+### Run Workflow
 
-```python
-from p_post import ContentPoster
-
-poster = ContentPoster()
-poster.run()
-```
+- **Manual**: Click the "Manual Trigger" node to start
+- **Scheduled**: Set up a cron trigger for automatic execution
+- **Webhook**: Configure webhook triggers for external activation
 
 ## Architecture
 
@@ -91,6 +85,17 @@ The system consists of several key components:
 - **Deduplication Engine**: Manages memory and prevents duplicates
 - **Platform Adapters**: Handles posting to different social media platforms
 - **Rate Limiter**: Ensures compliance with platform limits
+
+## Troubleshooting
+
+Common issues and solutions are documented in [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+
+### Video Posting Issues
+
+The workflow has been optimized for video processing:
+- Fixed connection issues in the media processing chain
+- Increased timeouts for large file downloads
+- Enhanced error handling for FFmpeg operations
 
 ## Contributing
 
