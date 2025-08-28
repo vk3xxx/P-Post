@@ -254,7 +254,7 @@
     },
     {
       "parameters": {
-        "command": "bash -lc \"set -e; VIDEO_FILE='/tmp/n8n_video_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'; AUDIO_FILE='/tmp/n8n_audio_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'; OUTPUT_FILE='/tmp/n8n_mux_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'; echo 'Processing video: $VIDEO_FILE'; if [ ! -s \"$VIDEO_FILE\" ]; then echo 'ERROR: Video file not found or empty'; exit 1; fi; if [ -s \"$AUDIO_FILE\" ]; then echo 'Audio file found, combining with video...'; ffmpeg -y -loglevel error -i \"$VIDEO_FILE\" -i \"$AUDIO_FILE\" -c copy -shortest \"$OUTPUT_FILE\"; echo 'Video and audio combined successfully'; else echo 'No audio file, copying video only...'; cp \"$VIDEO_FILE\" \"$OUTPUT_FILE\"; echo 'Video copied (no audio)'; fi; echo 'Processing completed successfully'\""
+        "command": "bash -lc \"set -e; VIDEO_FILE='/tmp/n8n_video_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'; AUDIO_FILE='/tmp/n8n_audio_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'; OUTPUT_FILE='/tmp/n8n_mux_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'; echo 'Processing video file'; if [ ! -s \\\"$VIDEO_FILE\\\" ]; then echo 'ERROR: Video file not found'; exit 1; fi; if [ -s \\\"$AUDIO_FILE\\\" ]; then echo 'Audio file found, combining...'; ffmpeg -y -loglevel error -i \\\"$VIDEO_FILE\\\" -i \\\"$AUDIO_FILE\\\" -c copy -shortest \\\"$OUTPUT_FILE\\\"; else echo 'No audio file, copying video only...'; cp \\\"$VIDEO_FILE\\\" \\\"$OUTPUT_FILE\\\"; fi; echo 'Processing completed'\""
       },
       "id": "Mux",
       "name": "Mux",
