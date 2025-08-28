@@ -1,6 +1,6 @@
 {
   "name": "P-Post_Content_Automation",
-  "comment": "Updated to match working workflow: SendPhoto uses 'file' parameter, SendVideo uses binaryData, simplified HTTP requests, and removed unnecessary parameters. TODO: Fix rate_seconds variable passing - currently hardcoded to 45 seconds in WaitImages and WaitVideos nodes.",
+  "comment": "Clean, simplified workflow: Both images and videos use direct URL posting to Telegram. Removed all complex video processing nodes. TODO: Fix rate_seconds variable passing - currently hardcoded to 45 seconds in WaitImages and WaitVideos nodes.",
   "nodes": [
     {
       "parameters": {},
@@ -150,100 +150,7 @@
       "typeVersion": 1,
       "position": [-220, 340]
     },
-    {
-      "parameters": {
-        "url": "={{$json.media_url}}",
-        "responseFormat": "file",
-        "binaryPropertyName": "video",
-        "options": {
-          "timeout": 120000
-        }
-      },
-      "id": "DLVideo",
-      "name": "DLVideo",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [0, 300]
-    },
-    {
-      "parameters": {
-        "url": "={{$json.audio_url}}",
-        "responseFormat": "file",
-        "binaryPropertyName": "audio",
-        "options": {
-          "timeout": 120000
-        }
-      },
-      "id": "DLAudio",
-      "name": "DLAudio",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [0, 420]
-    },
-    {
-      "parameters": {
-        "mode": "combine",
-        "options": {}
-      },
-      "id": "CombineMedia",
-      "name": "CombineMedia",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 2,
-      "position": [200, 360]
-    },
-    {
-      "parameters": {
-        "fileName": "=/tmp/n8n_video_{{$json.id}}.mp4",
-        "binaryPropertyName": "video"
-      },
-      "id": "WriteVideo",
-      "name": "WriteVideo",
-      "type": "n8n-nodes-base.writeBinaryFile",
-      "typeVersion": 1,
-      "position": [400, 300]
-    },
-    {
-      "parameters": {
-        "fileName": "=/tmp/n8n_audio_{{$json.id}}.mp4",
-        "binaryPropertyName": "audio"
-      },
-      "id": "WriteAudio",
-      "name": "WriteAudio",
-      "type": "n8n-nodes-base.writeBinaryFile",
-      "typeVersion": 1,
-      "position": [400, 420]
-    },
-    {
-      "parameters": {
-        "command": "bash -lc \"set -e; if [ -s /tmp/n8n_audio_{{$json.id}}.mp4 ]; then ffmpeg -y -loglevel error -i /tmp/n8n_video_{{$json.id}}.mp4 -i /tmp/n8n_audio_{{$json.id}}.mp4 -c copy -shortest /tmp/n8n_mux_{{$json.id}}.mp4; else cp /tmp/n8n_video_{{$json.id}}.mp4 /tmp/n8n_mux_{{$json.id}}.mp4; fi\""
-      },
-      "id": "Mux",
-      "name": "Mux",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [600, 360]
-    },
-    {
-      "parameters": {
-        "filePath": "=/tmp/n8n_mux_{{$json.id}}.mp4",
-        "binaryPropertyName": "data"
-      },
-      "id": "ReadMux",
-      "name": "ReadMux",
-      "type": "n8n-nodes-base.readBinaryFile",
-      "typeVersion": 1,
-      "position": [800, 360]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Merge binary video data with original JSON data\nconst originalData = $input.item.json;\nconst binaryData = $input.item.binary;\n\n// Create new item with both data and binary\nreturn [{\n  json: originalData,\n  binary: binaryData\n}];"
-      },
-      "id": "MergeVideoData",
-      "name": "MergeVideoData",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [900, 360]
-    },
+
     {
       "parameters": {
         "operation": "sendVideo",
@@ -259,16 +166,7 @@
       "typeVersion": 1,
       "position": [1000, 360]
     },
-    {
-      "parameters": {
-        "command": "bash -lc \"rm -f /tmp/n8n_*_{{$json.id}}.mp4 || true\""
-      },
-      "id": "Cleanup",
-      "name": "Cleanup",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [1200, 360]
-    },
+
     {
       "parameters": { "amount": 45, "unit": "seconds" },
       "id": "WaitVideos",
