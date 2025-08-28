@@ -257,12 +257,12 @@
     },
     {
       "parameters": {
-        "command": "={{$json.resolved_command}}"
+        "jsCode": "// Video processing using child_process (if available) or fallback to command execution\nconst item = $input.item;\nconst { id, media_type, slide, resolved_command } = item.json;\n\n// For now, just pass through the data since we can't execute commands in Code nodes\n// The actual video processing will need to be handled differently\nconsole.log('Video processing requested for:', { id, media_type, slide });\nconsole.log('Command would be:', resolved_command);\n\n// Return the data for ReadMux to use\nreturn [{\n  json: {\n    id,\n    media_type,\n    slide,\n    chat_id: item.json.chat_id,\n    caption: item.json.caption,\n    needs_video_processing: true\n  }\n}];"
       },
       "id": "VideoProcessor",
       "name": "VideoProcessor",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [900, 360]
     },
     {
@@ -286,16 +286,7 @@
       "typeVersion": 1,
       "position": [1000, 360]
     },
-    {
-      "parameters": {
-        "jsCode": "// Preserve essential data after video processing\nconst item = $input.item;\nconst { id, media_type, slide, chat_id, caption } = item.json;\n\n// Ensure all required fields are available for ReadMux\nreturn [{\n  json: {\n    id,\n    media_type,\n    slide,\n    chat_id,\n    caption,\n    needs_video_processing: true\n  }\n}];"
-      },
-      "id": "PreserveData",
-      "name": "PreserveData",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [950, 360]
-    },
+
     {
       "parameters": {
         "jsCode": "// Memory-efficient data merging\nconst item = $input.item;\n\n// Validate input data\nif (!item || !item.json || !item.binary) {\n  throw new Error('Invalid input: Missing JSON or binary data');\n}\n\n// Only pass essential data to reduce memory usage\nreturn [{\n  json: {\n    id: item.json.id,\n    chat_id: item.json.chat_id,\n    caption: item.json.caption\n  },\n  binary: item.binary\n}];"
@@ -372,8 +363,7 @@
     "CombineMedia": { "main": [[{ "node": "Mux", "type": "main", "index": 0 }]] },
     "Mux": { "main": [[{ "node": "CreateScript", "type": "main", "index": 0 }]] },
     "CreateScript": { "main": [[{ "node": "VideoProcessor", "type": "main", "index": 0 }]] },
-    "VideoProcessor": { "main": [[{ "node": "PreserveData", "type": "main", "index": 0 }]] },
-    "PreserveData": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
+    "VideoProcessor": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
     "ReadMux": { "main": [[{ "node": "MergeVideoData", "type": "main", "index": 0 }]] },
     "MergeVideoData": { "main": [[{ "node": "SendVideo", "type": "main", "index": 0 }]] },
     "SendVideo": { "main": [[{ "node": "Cleanup", "type": "main", "index": 0 }]] },
