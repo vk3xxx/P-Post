@@ -165,13 +165,42 @@
     },
     {
       "parameters": {
-        "jsCode": "// Smart download strategy for Reddit videos\nconst item = $input.item;\nconsole.log('=== SMART DOWNLOAD STRATEGY ===');\n\n// Try to extract different video qualities from the URL\nlet mediaUrl = item.json.media_url;\n\n// If it's a DASH video, try different quality options\nif (mediaUrl.includes('DASH_')) {\n  console.log('DASH video detected, trying different qualities...');\n  \n  // Try different DASH qualities (720p, 480p, 360p)\n  const qualities = ['720', '480', '360'];\n  const baseUrl = mediaUrl.replace(/DASH_\\d+\\.mp4$/, '');\n  \n  // Create alternative URLs\n  const alternativeUrls = qualities.map(q => `${baseUrl}DASH_${q}.mp4`);\n  \n  console.log('Alternative URLs to try:', alternativeUrls);\n  \n  // Use the first alternative URL (720p)\n  mediaUrl = alternativeUrls[0];\n  console.log('Using alternative URL:', mediaUrl);\n}\n\n// Add fallback strategy - try to get the video from Reddit's JSON API\nif (mediaUrl.includes('v.redd.it')) {\n  console.log('Reddit video detected, adding fallback strategy...');\n  \n  // Extract the video ID from the URL\n  const videoId = mediaUrl.match(/\\/([^\\/]+)\\.mp4$/)?.[1] || 'unknown';\n  console.log('Video ID extracted:', videoId);\n  \n  // Create a fallback URL using Reddit's JSON endpoint\n  const fallbackUrl = `https://www.reddit.com/api/info.json?id=t3_${videoId}`;\n  console.log('Fallback JSON API URL:', fallbackUrl);\n}\n\nconsole.log('Final media URL to download:', mediaUrl);\n\n// Pass through the data with the potentially modified URL\nreturn [{\n  json: {\n    id: item.json.id,\n    media_type: item.json.media_type,\n    slide: item.json.slide,\n    chat_id: item.json.chat_id,\n    caption: item.json.caption,\n    media_url: mediaUrl,\n    original_media_url: item.json.media_url,\n    fallback_strategy: true\n  }\n}];"
+        "jsCode": "// Reddit API-based download strategy\nconst item = $input.item;\nconsole.log('=== REDDIT API STRATEGY ===');\n\n// Extract the post ID from the caption URL\nconst caption = item.json.caption || '';\nconst redditUrlMatch = caption.match(/https:\\/\\/www\\.reddit\\.com\\/r\\/[^\\/]+\\/comments\\/([^\\/]+)\\/[^\\/]+\\//);\n\nif (!redditUrlMatch) {\n  console.log('ERROR: Could not extract Reddit post ID from caption');\n  throw new Error('Could not extract Reddit post ID from caption');\n}\n\nconst postId = redditUrlMatch[1];\nconsole.log('Reddit post ID extracted:', postId);\n\n// Use Reddit's JSON API to get video data\nconst redditApiUrl = `https://www.reddit.com/api/info.json?id=t3_${postId}`;\nconsole.log('Reddit API URL:', redditApiUrl);\n\n// For now, we'll use the original media_url but add the post ID for API access\n// The actual API call will be handled by a separate HTTP Request node\n\nconsole.log('Using Reddit API approach for post:', postId);\n\n// Pass through the data with API information\nreturn [{\n  json: {\n    id: item.json.id,\n    media_type: item.json.media_type,\n    slide: item.json.slide,\n    chat_id: item.json.chat_id,\n    caption: item.json.caption,\n    media_url: item.json.media_url,\n    reddit_post_id: postId,\n    reddit_api_url: redditApiUrl,\n    use_reddit_api: true\n  }\n}];"
       },
       "id": "SmartDownload",
       "name": "SmartDownload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [175, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.reddit_api_url}}",
+        "responseFormat": "json",
+        "options": {
+          "timeout": 30000,
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "application/json",
+            "Accept-Language": "en-US,en;q=0.9"
+          }
+        }
+      },
+      "id": "RedditAPI",
+      "name": "RedditAPI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process Reddit API response to extract video URL\nconst item = $input.item;\nconsole.log('=== PROCESSING REDDIT API RESPONSE ===');\n\n// Get the Reddit API response\nconst redditData = item.json;\nconsole.log('Reddit API response received');\n\n// Extract the original item data from the workflow context\nconst originalData = $('SmartDownload').item.json;\n\nif (!originalData) {\n  console.log('ERROR: Could not access original data from SmartDownload');\n  throw new Error('Could not access original data from SmartDownload');\n}\n\nconsole.log('Original data retrieved:', {\n  id: originalData.id,\n  media_type: originalData.media_type,\n  reddit_post_id: originalData.reddit_post_id\n});\n\n// For now, we'll use the original media_url but add the API data\n// In a future version, we can parse the Reddit API response to get better video URLs\n\nconsole.log('Using original media_url with API context');\n\n// Pass through the data with both original and API information\nreturn [{\n  json: {\n    id: originalData.id,\n    media_type: originalData.media_type,\n    slide: originalData.slide,\n    chat_id: originalData.chat_id,\n    caption: originalData.caption,\n    media_url: originalData.media_url,\n    reddit_post_id: originalData.reddit_post_id,\n    reddit_api_data: redditData,\n    use_reddit_api: true\n  }\n}];"
+      },
+      "id": "ProcessRedditAPI",
+      "name": "ProcessRedditAPI",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [225, 300]
     },
     {
       "parameters": {
@@ -313,7 +342,9 @@
     "SendPhoto": { "main": [[{ "node": "WaitImages", "type": "main", "index": 0 }]] },
     "SplitVideos": { "main": [[{ "node": "DebugDLVideo", "type": "main", "index": 0 }]] },
     "DebugDLVideo": { "main": [[{ "node": "SmartDownload", "type": "main", "index": 0 }]] },
-    "SmartDownload": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }]] },
+    "SmartDownload": { "main": [[{ "node": "RedditAPI", "type": "main", "index": 0 }]] },
+    "RedditAPI": { "main": [[{ "node": "ProcessRedditAPI", "type": "main", "index": 0 }]] },
+    "ProcessRedditAPI": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }]] },
     "DLVideo": { "main": [[{ "node": "WriteVideo", "type": "main", "index": 0 }]] },
     "WriteVideo": { "main": [[{ "node": "DebugWriteVideo", "type": "main", "index": 0 }]] },
     "DebugWriteVideo": { "main": [[{ "node": "ProcessVideo", "type": "main", "index": 0 }]] },
