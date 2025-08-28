@@ -109,6 +109,7 @@
     },
     {
       "parameters": {
+        "batchSize": 1,
         "options": {}
       },
       "id": "SplitImages",
@@ -142,6 +143,7 @@
     },
     {
       "parameters": {
+        "batchSize": 1,
         "options": {}
       },
       "id": "SplitVideos",
@@ -245,7 +247,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Add safety checks to prevent crashes\nconst item = $input.item;\nconst { id, media_type, slide } = item.json;\n\n// Check if required fields exist\nif (!id || !media_type || !slide) {\n  console.log('Missing required fields, skipping video processing');\n  return [{\n    json: {\n      ...item.json,\n      needs_video_processing: false,\n      error: 'Missing required fields'\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...item.json,\n    needs_video_processing: true\n  }\n}];"
+        "jsCode": "// Memory-efficient data pass-through\nconst item = $input.item;\nconst { id, media_type, slide, chat_id, caption } = item.json;\n\n// Only pass essential data to reduce memory usage\nreturn [{\n  json: {\n    id,\n    media_type,\n    slide,\n    chat_id,\n    caption,\n    needs_video_processing: true\n  }\n}];"
       },
       "id": "Mux",
       "name": "Mux",
@@ -265,7 +267,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Create a simple, safe command for n8n 1.106.3\nconst item = $input.item;\nconst { id, media_type, slide } = item.json;\n\n// Use a much simpler approach to avoid command length issues\nconst command = `ffmpeg -y -i /tmp/n8n_video_${id}_${media_type}_${slide}.mp4 -c copy /tmp/n8n_mux_${id}_${media_type}_${slide}.mp4`;\n\nreturn [{\n  json: {\n    ...item.json,\n    resolved_command: command,\n    video_path: `/tmp/n8n_video_${id}_${media_type}_${slide}.mp4`,\n    output_path: `/tmp/n8n_mux_${id}_${media_type}_${slide}.mp4`\n  }\n}];"
+        "jsCode": "// Memory-efficient video processing - process one item at a time\nconst item = $input.item;\nconst { id, media_type, slide } = item.json;\n\n// Validate required fields\nif (!id || !media_type || !slide) {\n  console.log('Missing required fields, skipping');\n  return [{\n    json: {\n      ...item.json,\n      needs_video_processing: false,\n      error: 'Missing required fields'\n    }\n  }];\n}\n\n// Simple command to avoid memory issues\nconst command = `ffmpeg -y -i /tmp/n8n_video_${id}_${media_type}_${slide}.mp4 -c copy /tmp/n8n_mux_${id}_${media_type}_${slide}.mp4`;\n\n// Return minimal data to reduce memory usage\nreturn [{\n  json: {\n    id,\n    media_type,\n    slide,\n    chat_id: item.json.chat_id,\n    caption: item.json.caption,\n    resolved_command: command,\n    needs_video_processing: true\n  }\n}];"
       },
       "id": "CreateScript",
       "name": "CreateScript",
@@ -286,7 +288,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Enterprise-grade data merging with validation\nconst item = $input.item;\n\n// Validate input data\nif (!item || !item.json || !item.binary) {\n  throw new Error('Invalid input: Missing JSON or binary data');\n}\n\n// Preserve all original JSON data\nconst originalData = { ...item.json };\n\n// Create new item with both data and binary\nreturn [{\n  json: originalData,\n  binary: item.binary\n}];"
+        "jsCode": "// Memory-efficient data merging\nconst item = $input.item;\n\n// Validate input data\nif (!item || !item.json || !item.binary) {\n  throw new Error('Invalid input: Missing JSON or binary data');\n}\n\n// Only pass essential data to reduce memory usage\nreturn [{\n  json: {\n    id: item.json.id,\n    chat_id: item.json.chat_id,\n    caption: item.json.caption\n  },\n  binary: item.binary\n}];"
       },
       "id": "MergeVideoData",
       "name": "MergeVideoData",
