@@ -168,50 +168,8 @@
       "typeVersion": 4,
       "position": [200, 300]
     },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict"
-          },
-          "conditions": [
-            {
-              "id": "condition1",
-              "leftValue": "={{$json.needs_audio_download}}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equal"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "IfAudio",
-      "name": "IfAudio",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [400, 300]
-    },
-    {
-      "parameters": {
-        "url": "={{$json.audio_url}}",
-        "responseFormat": "file",
-        "binaryPropertyName": "audio",
-        "options": {
-          "timeout": 120000
-        }
-      },
-      "id": "DLAudio",
-      "name": "DLAudio",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [200, 420]
-    },
+
+
     {
       "parameters": {
         "fileName": "=/tmp/n8n_video_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4",
@@ -223,48 +181,9 @@
       "typeVersion": 1,
       "position": [400, 300]
     },
-    {
-      "parameters": {
-        "fileName": "=/tmp/n8n_audio_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4",
-        "binaryPropertyName": "audio"
-      },
-      "id": "WriteAudio",
-      "name": "WriteAudio",
-      "type": "n8n-nodes-base.writeBinaryFile",
-      "typeVersion": 1,
-      "position": [400, 420]
-    },
-    {
-      "parameters": {
-        "mode": "append",
-        "options": {}
-      },
-      "id": "CombineMedia",
-      "name": "CombineMedia",
-      "type": "n8n-nodes-base.merge",
-      "typeVersion": 2,
-      "position": [600, 360]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Memory-efficient data pass-through\nconst item = $input.item;\nconst { id, media_type, slide, chat_id, caption } = item.json;\n\n// Only pass essential data to reduce memory usage\nreturn [{\n  json: {\n    id,\n    media_type,\n    slide,\n    chat_id,\n    caption,\n    needs_video_processing: true\n  }\n}];"
-      },
-      "id": "Mux",
-      "name": "Mux",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [800, 360]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Simple data pass-through - video processing handled by ExecuteCommand\nconst item = $input.item;\nconst { id, media_type, slide, chat_id, caption } = item.json;\n\n// Pass through essential data for the next node\nreturn [{\n  json: {\n    id,\n    media_type,\n    slide,\n    chat_id,\n    caption,\n    needs_video_processing: true\n  }\n}];"
-      },
-      "id": "VideoProcessor",
-      "name": "VideoProcessor",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [900, 360]
-    },
+
+
+
     {
       "parameters": {
         "command": "bash -c \"set -e; ID='{{$json.id}}'; TYPE='{{$json.media_type}}'; SLIDE='{{$json.slide}}'; VIDEO_FILE='/tmp/n8n_video_${ID}_${TYPE}_${SLIDE}.mp4'; OUTPUT_FILE='/tmp/n8n_mux_${ID}_${TYPE}_${SLIDE}.mp4'; echo 'Processing video: $VIDEO_FILE'; if [ ! -s \\\"$VIDEO_FILE\\\" ]; then echo 'ERROR: Video file not found'; exit 1; fi; echo 'Copying video to output...'; cp \\\"$VIDEO_FILE\\\" \\\"$OUTPUT_FILE\\\"; echo 'Video processing completed'\""
@@ -352,18 +271,7 @@
     "SendPhoto": { "main": [[{ "node": "WaitImages", "type": "main", "index": 0 }]] },
     "SplitVideos": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }]] },
     "DLVideo": { "main": [[{ "node": "WriteVideo", "type": "main", "index": 0 }]] },
-    "WriteVideo": { "main": [[{ "node": "IfAudio", "type": "main", "index": 0 }]] },
-    "IfAudio": {
-      "main": [
-        [{ "node": "DLAudio", "type": "main", "index": 0 }],
-        [{ "node": "CombineMedia", "type": "main", "index": 0 }]
-      ]
-    },
-    "DLAudio": { "main": [[{ "node": "WriteAudio", "type": "main", "index": 0 }]] },
-    "WriteAudio": { "main": [[{ "node": "CombineMedia", "type": "main", "index": 1 }]] },
-    "CombineMedia": { "main": [[{ "node": "Mux", "type": "main", "index": 0 }]] },
-    "Mux": { "main": [[{ "node": "VideoProcessor", "type": "main", "index": 0 }]] },
-    "VideoProcessor": { "main": [[{ "node": "ProcessVideo", "type": "main", "index": 0 }]] },
+    "WriteVideo": { "main": [[{ "node": "ProcessVideo", "type": "main", "index": 0 }]] },
     "ProcessVideo": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
     "ReadMux": { "main": [[{ "node": "MergeVideoData", "type": "main", "index": 0 }]] },
     "MergeVideoData": { "main": [[{ "node": "SendVideo", "type": "main", "index": 0 }]] },
