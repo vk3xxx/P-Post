@@ -1,6 +1,6 @@
 {
   "name": "P-Post_Content_Automation",
-  "comment": "Clean, simplified workflow: Both images and videos use direct URL posting to Telegram. Removed all complex video processing nodes. TODO: Fix rate_seconds variable passing - currently hardcoded to 45 seconds in WaitImages and WaitVideos nodes.",
+  "comment": "Enterprise-grade workflow: Images use direct URL posting, videos use full processing chain (download, mux, combine) for audio+video support. TODO: Fix rate_seconds variable passing - currently hardcoded to 45 seconds in WaitImages and WaitVideos nodes.",
   "nodes": [
     {
       "parameters": {},
@@ -150,6 +150,125 @@
       "typeVersion": 1,
       "position": [-220, 340]
     },
+    {
+      "parameters": {
+        "url": "={{$json.media_url}}",
+        "responseFormat": "file",
+        "binaryPropertyName": "video",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "DLVideo",
+      "name": "DLVideo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$json.audio_url}}",
+        "responseFormat": "file",
+        "binaryPropertyName": "audio",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "DLAudio",
+      "name": "DLAudio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [0, 420]
+    },
+    {
+      "parameters": {
+        "fileName": "=/tmp/n8n_video_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4",
+        "binaryPropertyName": "video"
+      },
+      "id": "WriteVideo",
+      "name": "WriteVideo",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "fileName": "=/tmp/n8n_audio_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4",
+        "binaryPropertyName": "audio"
+      },
+      "id": "WriteAudio",
+      "name": "WriteAudio",
+      "type": "n8n-nodes-base.writeBinaryFile",
+      "typeVersion": 1,
+      "position": [200, 420]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "options": {}
+      },
+      "id": "CombineMedia",
+      "name": "CombineMedia",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [400, 360]
+    },
+    {
+      "parameters": {
+        "command": "bash -lc \"set -e; VIDEO_FILE='/tmp/n8n_video_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'; AUDIO_FILE='/tmp/n8n_audio_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'; OUTPUT_FILE='/tmp/n8n_mux_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4'; if [ -s \"$AUDIO_FILE\" ] && [ -s \"$VIDEO_FILE\" ]; then ffmpeg -y -loglevel error -i \"$VIDEO_FILE\" -i \"$AUDIO_FILE\" -c copy -shortest \"$OUTPUT_FILE\"; echo 'Video and audio combined successfully'; elif [ -s \"$VIDEO_FILE\" ]; then cp \"$VIDEO_FILE\" \"$OUTPUT_FILE\"; echo 'Video copied (no audio)'; else echo 'No video file found'; exit 1; fi\""
+      },
+      "id": "Mux",
+      "name": "Mux",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "filePath": "=/tmp/n8n_mux_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4",
+        "binaryPropertyName": "data"
+      },
+      "id": "ReadMux",
+      "name": "ReadMux",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [600, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Enterprise-grade data merging with validation\nconst item = $input.item;\n\n// Validate input data\nif (!item || !item.json || !item.binary) {\n  throw new Error('Invalid input: Missing JSON or binary data');\n}\n\n// Preserve all original JSON data\nconst originalData = { ...item.json };\n\n// Create new item with both data and binary\nreturn [{\n  json: originalData,\n  binary: item.binary\n}];"
+      },
+      "id": "MergeVideoData",
+      "name": "MergeVideoData",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [800, 300]
+    },
+    {
+      "parameters": {
+        "operation": "sendVideo",
+        "chatId": "={{$json.chat_id}}",
+        "binaryData": true,
+        "additionalFields": {
+          "caption": "={{$json.caption}}"
+        }
+      },
+      "id": "SendVideo",
+      "name": "SendVideo",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [1000, 300]
+    },
+    {
+      "parameters": {
+        "command": "bash -lc \"set -e; ID='{{$json.id}}'; TYPE='{{$json.media_type}}'; SLIDE='{{$json.slide}}'; echo 'Cleaning up temporary files for ID: $ID, Type: $TYPE, Slide: $SLIDE'; rm -f \"/tmp/n8n_video_${ID}_${TYPE}_${SLIDE}.mp4\" \"/tmp/n8n_audio_${ID}_${TYPE}_${SLIDE}.mp4\" \"/tmp/n8n_mux_${ID}_${TYPE}_${SLIDE}.mp4\" || echo 'Some files may not exist (this is normal)'; echo 'Cleanup completed'\""
+      },
+      "id": "Cleanup",
+      "name": "Cleanup",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [1200, 300]
+    },
 
     {
       "parameters": {
@@ -191,7 +310,16 @@
     },
     "SplitImages": { "main": [[{ "node": "SendPhoto", "type": "main", "index": 0 }]] },
     "SendPhoto": { "main": [[{ "node": "WaitImages", "type": "main", "index": 0 }]] },
-    "SplitVideos": { "main": [[{ "node": "SendVideo", "type": "main", "index": 0 }]] },
-    "SendVideo": { "main": [[{ "node": "WaitVideos", "type": "main", "index": 0 }]] }
+    "SplitVideos": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }, { "node": "DLAudio", "type": "main", "index": 0 }]] },
+    "DLVideo": { "main": [[{ "node": "WriteVideo", "type": "main", "index": 0 }]] },
+    "DLAudio": { "main": [[{ "node": "WriteAudio", "type": "main", "index": 0 }]] },
+    "WriteVideo": { "main": [[{ "node": "CombineMedia", "type": "main", "index": 0 }]] },
+    "WriteAudio": { "main": [[{ "node": "CombineMedia", "type": "main", "index": 1 }]] },
+    "CombineMedia": { "main": [[{ "node": "Mux", "type": "main", "index": 0 }]] },
+    "Mux": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
+    "ReadMux": { "main": [[{ "node": "MergeVideoData", "type": "main", "index": 0 }]] },
+    "MergeVideoData": { "main": [[{ "node": "SendVideo", "type": "main", "index": 0 }]] },
+    "SendVideo": { "main": [[{ "node": "Cleanup", "type": "main", "index": 0 }]] },
+    "Cleanup": { "main": [[{ "node": "WaitVideos", "type": "main", "index": 0 }]] }
   }
 }
