@@ -109,7 +109,7 @@
       "parameters": {
         "url": "={{$json.media_url}}",
         "responseFormat": "file",
-        "binaryPropertyName": "image",
+        "binaryPropertyName": "data",
         "options": { "timeout": 60000, "followRedirect": true }
       },
       "id": "DLImage",
@@ -120,11 +120,21 @@
     },
     {
       "parameters": {
+        "jsCode": "// Merge binary data with original JSON data\nconst originalData = $input.item.json;\nconst binaryData = $input.item.binary;\n\n// Create new item with both data and binary\nreturn [{\n  json: originalData,\n  binary: binaryData\n}];"
+      },
+      "id": "MergeImageData",
+      "name": "MergeImageData",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-55, 60]
+    },
+    {
+      "parameters": {
         "resource": "message",
         "operation": "sendPhoto",
         "chatId": "={{$json.chat_id}}",
         "binaryData": true,
-        "photo": "image",
+        "photo": "data",
         "additionalFields": { "caption": "={{$json.caption}}" }
       },
       "id": "SendPhoto",
@@ -274,7 +284,8 @@
       ]
     },
     "SplitImages": { "main": [[{ "node": "DLImage", "type": "main", "index": 0 }]] },
-    "DLImage": { "main": [[{ "node": "SendPhoto", "type": "main", "index": 0 }]] },
+    "DLImage": { "main": [[{ "node": "MergeImageData", "type": "main", "index": 0 }]] },
+    "MergeImageData": { "main": [[{ "node": "SendPhoto", "type": "main", "index": 0 }]] },
     "SendPhoto": { "main": [[{ "node": "WaitImages", "type": "main", "index": 0 }]] },
     "SplitVideos": {
       "main": [
