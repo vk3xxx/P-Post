@@ -345,8 +345,7 @@
     },
     "SplitImages": { "main": [[{ "node": "SendPhoto", "type": "main", "index": 0 }]] },
     "SendPhoto": { "main": [[{ "node": "WaitImages", "type": "main", "index": 0 }]] },
-    "SplitVideos": { "main": [[{ "node": "VideoProcessor", "type": "main", "index": 0 }]] },
-    "VideoProcessor": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }]] },
+    "SplitVideos": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }]] },
     "DLVideo": { "main": [[{ "node": "WriteVideo", "type": "main", "index": 0 }]] },
     "WriteVideo": { "main": [[{ "node": "IfAudio", "type": "main", "index": 0 }]] },
     "IfAudio": {
