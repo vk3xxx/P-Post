@@ -204,7 +204,7 @@
     },
     {
       "parameters": {
-        "command": "curl -L -o /tmp/n8n_video_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4 -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' -H 'Referer: https://www.reddit.com/' -H 'Accept: */*' -H 'Accept-Language: en-US,en;q=0.9' -H 'Accept-Encoding: gzip, deflate, br' -H 'Sec-Fetch-Dest: video' -H 'Sec-Fetch-Mode: no-cors' -H 'Sec-Fetch-Site: cross-site' -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' --connect-timeout 30 --max-time 120 '{{$json.media_url}}' && echo 'DOWNLOAD_COMPLETE'"
+        "command": "={{$json.resolved_curl_command}}"
       },
       "id": "DLVideo",
       "name": "DLVideo",
@@ -215,6 +215,16 @@
 
 
 
+    {
+      "parameters": {
+        "jsCode": "// Build the curl command with resolved values\nconst item = $input.item;\nconsole.log('=== BUILDING CURL COMMAND ===');\nconsole.log('Input item:', JSON.stringify(item.json, null, 2));\n\nconst { id, media_type, slide, media_url, chat_id, caption } = item.json;\nconsole.log('Building command for:', { id, media_type, slide, media_url });\n\n// Validate required fields\nif (!id || !media_type || !slide || !media_url) {\n  console.log('ERROR: Missing required fields in BuildCurlCommand');\n  console.log('id:', id);\n  console.log('media_type:', media_type);\n  console.log('slide:', slide);\n  console.log('media_url:', media_url);\n  throw new Error('Missing required fields in BuildCurlCommand');\n}\n\n// Build the complete curl command with resolved values\nconst curlCommand = `curl -L -o /tmp/n8n_video_${id}_${media_type}_${slide}.mp4 -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' -H 'Referer: https://www.reddit.com/' -H 'Accept: */*' -H 'Accept-Language: en-US,en;q=0.9' -H 'Accept-Encoding: gzip, deflate, br' -H 'Sec-Fetch-Dest: video' -H 'Sec-Fetch-Mode: no-cors' -H 'Sec-Fetch-Site: cross-site' -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' --connect-timeout 30 --max-time 120 '${media_url}' && echo 'DOWNLOAD_COMPLETE'`;\n\nconsole.log('Built curl command:', curlCommand);\n\n// Pass through the data with the resolved command\nreturn [{\n  json: {\n    id,\n    media_type,\n    slide,\n    chat_id,\n    caption,\n    media_url,\n    reddit_post_id: item.json.reddit_post_id,\n    reddit_api_data: item.json.reddit_api_data,\n    use_reddit_api: true,\n    resolved_curl_command: curlCommand\n  }\n}];"
+      },
+      "id": "BuildCurlCommand",
+      "name": "BuildCurlCommand",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, 300]
+    },
     {
       "parameters": {
         "jsCode": "// Preserve video data after DLVideo download\nconst item = $input.item;\nconsole.log('=== PRESERVE VIDEO DATA ===');\nconsole.log('Input item:', JSON.stringify(item.json, null, 2));\n\n// Get the original data from the workflow context (before DLVideo)\nconst originalData = $('ProcessRedditAPI').item.json;\n\nif (!originalData) {\n  console.log('ERROR: Could not access original data from ProcessRedditAPI');\n  throw new Error('Could not access original data from ProcessRedditAPI');\n}\n\nconsole.log('Original data retrieved:', {\n  id: originalData.id,\n  media_type: originalData.media_type,\n  slide: originalData.slide,\n  chat_id: originalData.chat_id,\n  caption: originalData.caption,\n  media_url: originalData.media_url\n});\n\n// Pass through the data with all required fields preserved\nreturn [{\n  json: {\n    id: originalData.id,\n    media_type: originalData.media_type,\n    slide: originalData.slide,\n    chat_id: originalData.chat_id,\n    caption: originalData.caption,\n    media_url: originalData.media_url,\n    download_completed: true,\n    file_path: `/tmp/n8n_video_${originalData.id}_${originalData.media_type}_${originalData.slide}.mp4`\n  }\n}];"
@@ -317,7 +327,8 @@
     "DebugDLVideo": { "main": [[{ "node": "SmartDownload", "type": "main", "index": 0 }]] },
     "SmartDownload": { "main": [[{ "node": "RedditAPI", "type": "main", "index": 0 }]] },
     "RedditAPI": { "main": [[{ "node": "ProcessRedditAPI", "type": "main", "index": 0 }]] },
-    "ProcessRedditAPI": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }]] },
+    "ProcessRedditAPI": { "main": [[{ "node": "BuildCurlCommand", "type": "main", "index": 0 }]] },
+    "BuildCurlCommand": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }]] },
     "DLVideo": { "main": [[{ "node": "PreserveVideoData", "type": "main", "index": 0 }]] },
     "PreserveVideoData": { "main": [[{ "node": "ProcessVideo", "type": "main", "index": 0 }]] },
     "ProcessVideo": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
