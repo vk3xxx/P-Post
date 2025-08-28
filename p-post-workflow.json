@@ -181,6 +181,16 @@
       "typeVersion": 1,
       "position": [400, 300]
     },
+    {
+      "parameters": {
+        "jsCode": "// Debug what WriteVideo is actually doing\nconst item = $input.item;\nconsole.log('=== DEBUG WRITEVIDEO ===');\nconsole.log('Item JSON:', JSON.stringify(item.json, null, 2));\nconsole.log('Binary properties:', Object.keys(item.binary || {}));\nconsole.log('Video binary size:', item.binary?.video?.data?.length || 'No video data');\nconsole.log('File path would be:', `/tmp/n8n_video_${item.json.id}_${item.json.media_type}_${item.json.slide}.mp4`);\n\n// Check if we have the required fields\nif (!item.json.id || !item.json.media_type || !item.json.slide) {\n  console.log('ERROR: Missing required fields');\n  throw new Error('Missing required fields for video processing');\n}\n\n// Check if we have binary video data\nif (!item.binary?.video) {\n  console.log('ERROR: No binary video data');\n  throw new Error('No binary video data received from DLVideo');\n}\n\nconsole.log('WriteVideo should create file successfully');\n\n// Pass through the data\nreturn [{\n  json: {\n    id: item.json.id,\n    media_type: item.json.media_type,\n    slide: item.json.slide,\n    chat_id: item.json.chat_id,\n    caption: item.json.caption\n  },\n  binary: item.binary\n}];"
+      },
+      "id": "DebugWriteVideo",
+      "name": "DebugWriteVideo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
 
 
 
@@ -271,7 +281,8 @@
     "SendPhoto": { "main": [[{ "node": "WaitImages", "type": "main", "index": 0 }]] },
     "SplitVideos": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }]] },
     "DLVideo": { "main": [[{ "node": "WriteVideo", "type": "main", "index": 0 }]] },
-    "WriteVideo": { "main": [[{ "node": "ProcessVideo", "type": "main", "index": 0 }]] },
+    "WriteVideo": { "main": [[{ "node": "DebugWriteVideo", "type": "main", "index": 0 }]] },
+    "DebugWriteVideo": { "main": [[{ "node": "ProcessVideo", "type": "main", "index": 0 }]] },
     "ProcessVideo": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
     "ReadMux": { "main": [[{ "node": "MergeVideoData", "type": "main", "index": 0 }]] },
     "MergeVideoData": { "main": [[{ "node": "SendVideo", "type": "main", "index": 0 }]] },
