@@ -254,7 +254,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Prepare video processing command with resolved values\nconst item = $input.item;\nconst { id, media_type, slide } = item.json;\n\n// Create the bash command with actual values instead of n8n expressions\nconst bashCommand = `bash -lc \"set -e; ID='${id}'; TYPE='${media_type}'; SLIDE='${slide}'; VIDEO_FILE='/tmp/n8n_video_${id}_${media_type}_${slide}.mp4'; AUDIO_FILE='/tmp/n8n_audio_${id}_${media_type}_${slide}.mp4'; OUTPUT_FILE='/tmp/n8n_mux_${id}_${media_type}_${slide}.mp4'; echo 'Processing video: $VIDEO_FILE'; if [ ! -s \\\"$VIDEO_FILE\\\" ]; then echo 'ERROR: Video file not found'; exit 1; fi; if [ -s \\\"$AUDIO_FILE\\\" ]; then echo 'Audio file found, combining...'; ffmpeg -y -loglevel error -i \\\"$VIDEO_FILE\\\" -i \\\"$AUDIO_FILE\\\" -c copy -shortest \\\"$OUTPUT_FILE\\\"; else echo 'No audio file, copying video only...'; cp \\\"$VIDEO_FILE\\\" \\\"$OUTPUT_FILE\\\"; fi; echo 'Processing completed'\"`;\n\nreturn [{\n  json: {\n    ...item.json,\n    bash_command: bashCommand\n  }\n}];"
+        "jsCode": "// Enterprise-grade video processing with proper validation and error handling\nconst item = $input.item;\nconst { execSync } = require('child_process');\nconst fs = require('fs');\nconst path = require('path');\n\n// Validate input data\nif (!item || !item.json) {\n  throw new Error('Invalid input: Missing JSON data');\n}\n\nconst { id, media_type, slide, audio_url } = item.json;\n\n// Define file paths with proper validation\nconst videoFile = `/tmp/n8n_video_${id}_${media_type}_${slide}.mp4`;\nconst audioFile = `/tmp/n8n_audio_${id}_${media_type}_${slide}.mp4`;\nconst outputFile = `/tmp/n8n_mux_${id}_${media_type}_${slide}.mp4`;\n\nconsole.log(`Starting video processing for ID: ${id}`);\nconsole.log(`Video file: ${videoFile}`);\nconsole.log(`Audio file: ${audioFile}`);\nconsole.log(`Output file: ${outputFile}`);\n\n// Validate video file exists and has content\nif (!fs.existsSync(videoFile)) {\n  throw new Error(`Video file not found: ${videoFile}`);\n}\n\nconst videoStats = fs.statSync(videoFile);\nif (videoStats.size === 0) {\n  throw new Error(`Video file is empty: ${videoFile}`);\n}\n\nconsole.log(`Video file validated: ${videoStats.size} bytes`);\n\n// Check if audio file exists and has content\nconst hasAudio = fs.existsSync(audioFile) && fs.statSync(audioFile).size > 0;\n\nif (hasAudio) {\n  console.log('Audio file found, combining video and audio...');\n  try {\n    // Use FFmpeg to combine video and audio streams\n    const ffmpegCmd = `ffmpeg -y -loglevel error -i \"${videoFile}\" -i \"${audioFile}\" -c copy -shortest \"${outputFile}\"`;\n    console.log(`Executing: ${ffmpegCmd}`);\n    \n    execSync(ffmpegCmd, { stdio: 'pipe' });\n    \n    // Verify output file was created successfully\n    if (!fs.existsSync(outputFile) || fs.statSync(outputFile).size === 0) {\n      throw new Error('FFmpeg output file creation failed');\n    }\n    \n    console.log('Video and audio combined successfully');\n  } catch (error) {\n    console.error('FFmpeg failed:', error.message);\n    console.log('Falling back to video copy...');\n    \n    // Fallback: copy video only if FFmpeg fails\n    execSync(`cp \"${videoFile}\" \"${outputFile}\"`, { stdio: 'pipe' });\n  }\n} else {\n  console.log('No audio file found, copying video only...');\n  \n  // Copy video file to output location\n  execSync(`cp \"${videoFile}\" \"${outputFile}\"`, { stdio: 'pipe' });\n}\n\n// Final validation of output file\nif (!fs.existsSync(outputFile)) {\n  throw new Error(`Output file creation failed: ${outputFile}`);\n}\n\nconst outputStats = fs.statSync(outputFile);\nif (outputStats.size === 0) {\n  throw new Error(`Output file is empty: ${outputFile}`);\n}\n\nconsole.log(`Video processing completed successfully. Output: ${outputStats.size} bytes`);\n\n// Return the item with processing results\nreturn [{\n  json: {\n    ...item.json,\n    processed_video_path: outputFile,\n    processing_success: true,\n    has_audio: hasAudio,\n    output_size: outputStats.size\n  }\n}];"
       },
       "id": "Mux",
       "name": "Mux",
@@ -264,17 +264,7 @@
     },
     {
       "parameters": {
-        "command": "={{$json.bash_command}}"
-      },
-      "id": "VideoProcessor",
-      "name": "VideoProcessor",
-      "type": "n8n-nodes-base.executeCommand",
-      "typeVersion": 1,
-      "position": [900, 360]
-    },
-    {
-      "parameters": {
-        "filePath": "=/tmp/n8n_mux_{{$json.id}}_{{$json.media_type}}_{{$json.slide}}.mp4",
+        "filePath": "={{$json.processed_video_path}}",
         "binaryPropertyName": "data"
       },
       "id": "ReadMux",
@@ -357,8 +347,7 @@
     "DLAudio": { "main": [[{ "node": "WriteAudio", "type": "main", "index": 0 }]] },
     "WriteAudio": { "main": [[{ "node": "CombineMedia", "type": "main", "index": 1 }]] },
     "CombineMedia": { "main": [[{ "node": "Mux", "type": "main", "index": 0 }]] },
-    "Mux": { "main": [[{ "node": "VideoProcessor", "type": "main", "index": 0 }]] },
-    "VideoProcessor": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
+    "Mux": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
     "ReadMux": { "main": [[{ "node": "MergeVideoData", "type": "main", "index": 0 }]] },
     "MergeVideoData": { "main": [[{ "node": "SendVideo", "type": "main", "index": 0 }]] },
     "SendVideo": { "main": [[{ "node": "Cleanup", "type": "main", "index": 0 }]] },
