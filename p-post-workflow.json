@@ -213,6 +213,17 @@
       "position": [200, 300]
     },
 
+    {
+      "parameters": {
+        "command": "={{$json.resolved_audio_curl_command}}"
+      },
+      "id": "DLAudio",
+      "name": "DLAudio",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [200, 400]
+    },
+
 
 
     {
@@ -225,6 +236,17 @@
       "typeVersion": 2,
       "position": [250, 300]
     },
+
+    {
+      "parameters": {
+        "jsCode": "// Build the audio curl command with resolved values\nconst item = $input.item;\nconsole.log('=== BUILDING AUDIO CURL COMMAND ===');\nconsole.log('Input item:', JSON.stringify(item.json, null, 2));\n\nconst { id, media_type, slide, audio_url, chat_id, caption } = item.json;\nconsole.log('Building audio command for:', { id, media_type, slide, audio_url });\n\n// Check if audio URL exists\nif (!audio_url) {\n  console.log('No audio URL found, skipping audio download');\n  return [{\n    json: {\n      id,\n      media_type,\n      slide,\n      chat_id,\n      caption,\n      media_url: item.json.media_url,\n      audio_url: null,\n      has_audio: false,\n      resolved_audio_curl_command: null\n    }\n  }];\n}\n\n// Validate required fields\nif (!id || !media_type || !slide || !audio_url) {\n  console.log('ERROR: Missing required fields in BuildAudioCommand');\n  console.log('id:', id);\n  console.log('media_type:', media_type);\n  console.log('slide:', slide);\n  console.log('audio_url:', audio_url);\n  throw new Error('Missing required fields in BuildAudioCommand');\n}\n\n// Build the complete audio curl command with resolved values and better debugging\nconst audioCurlCommand = `curl -L -v -o /tmp/n8n_audio_${id}_${media_type}_${slide}.mp4 -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' -H 'Referer: https://www.reddit.com/' -H 'Accept: */*' -H 'Accept-Language: en-US,en;q=0.9' -H 'Accept-Encoding: gzip, deflate, br' -H 'Sec-Fetch-Dest: audio' -H 'Sec-Fetch-Mode: no-cors' -H 'Sec-Fetch-Site: cross-site' -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' --connect-timeout 30 --max-time 120 --write-out 'HTTP_CODE:%{http_code}\\nSIZE_DOWNLOADED:%{size_downloaded}\\nTIME_TOTAL:%{time_total}\\n' '${audio_url}' && echo '=== AUDIO DOWNLOAD COMPLETED ===' && ls -lh /tmp/n8n_audio_${id}_${media_type}_${slide}.mp4 && echo '=== AUDIO FILE VERIFICATION ==='`;\n\nconsole.log('Built audio curl command:', audioCurlCommand);\n\n// Pass through the data with the resolved command\nreturn [{\n  json: {\n    id,\n    media_type,\n    slide,\n    chat_id,\n    caption,\n    media_url: item.json.media_url,\n    audio_url,\n    has_audio: true,\n    reddit_post_id: item.json.reddit_post_id,\n    reddit_api_data: item.json.reddit_api_data,\n    use_reddit_api: true,\n    resolved_audio_curl_command: audioCurlCommand\n  }\n}];"
+      },
+      "id": "BuildAudioCommand",
+      "name": "BuildAudioCommand",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, 400]
+    },
     {
       "parameters": {
         "jsCode": "// Preserve video data after DLVideo download\nconst item = $input.item;\nconsole.log('=== PRESERVE VIDEO DATA ===');\nconsole.log('Input item:', JSON.stringify(item.json, null, 2));\n\n// Get the original data from the workflow context (before DLVideo)\nconst originalData = $('ProcessRedditAPI').item.json;\n\nif (!originalData) {\n  console.log('ERROR: Could not access original data from ProcessRedditAPI');\n  throw new Error('Could not access original data from ProcessRedditAPI');\n}\n\nconsole.log('Original data retrieved:', {\n  id: originalData.id,\n  media_type: originalData.media_type,\n  slide: originalData.slide,\n  chat_id: originalData.chat_id,\n  caption: originalData.caption,\n  media_url: originalData.media_url\n});\n\n// Pass through the data with all required fields preserved\nreturn [{\n  json: {\n    id: originalData.id,\n    media_type: originalData.media_type,\n    slide: originalData.slide,\n    chat_id: originalData.chat_id,\n    caption: originalData.caption,\n    media_url: originalData.media_url,\n    download_completed: true,\n    file_path: `/tmp/n8n_video_${originalData.id}_${originalData.media_type}_${originalData.slide}.mp4`\n  }\n}];"
@@ -236,11 +258,33 @@
       "position": [450, 300]
     },
 
+    {
+      "parameters": {
+        "jsCode": "// Preserve audio data after DLAudio download\nconst item = $input.item;\nconsole.log('=== PRESERVE AUDIO DATA ===');\nconsole.log('Input item:', JSON.stringify(item.json, null, 2));\n\n// Get the original data from the workflow context (before DLAudio)\nconst originalData = $('ProcessRedditAPI').item.json;\n\nif (!originalData) {\n  console.log('ERROR: Could not access original data from ProcessRedditAPI');\n  throw new Error('Could not access original data from ProcessRedditAPI');\n}\n\n// Check if audio URL exists\nif (!originalData.audio_url) {\n  console.log('No audio URL found, skipping audio processing');\n  return [{\n    json: {\n      id: originalData.id,\n      media_type: originalData.media_type,\n      slide: originalData.slide,\n      chat_id: originalData.chat_id,\n      caption: originalData.caption,\n      media_url: originalData.media_url,\n      audio_url: null,\n      has_audio: false,\n      audio_download_completed: false,\n      audio_file_path: null\n    }\n  }];\n}\n\nconsole.log('Audio URL found:', originalData.audio_url);\nconsole.log('Original data retrieved:', {\n  id: originalData.id,\n  media_type: originalData.media_type,\n  slide: originalData.slide,\n  chat_id: originalData.chat_id,\n  caption: originalData.caption,\n  audio_url: originalData.audio_url\n});\n\n// Pass through the data with all required fields preserved\nreturn [{\n  json: {\n    id: originalData.id,\n    media_type: originalData.media_type,\n    slide: originalData.slide,\n    chat_id: originalData.chat_id,\n    caption: originalData.caption,\n    media_url: originalData.media_url,\n    audio_url: originalData.audio_url,\n    has_audio: true,\n    audio_download_completed: true,\n    audio_file_path: `/tmp/n8n_audio_${originalData.id}_${originalData.media_type}_${originalData.slide}.mp4`\n  }\n}];"
+      },
+      "id": "PreserveAudioData",
+      "name": "PreserveAudioData",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 400]
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Merge video and audio data for processing\nconst item = $input.item;\nconsole.log('=== MERGE VIDEO AUDIO DATA ===');\nconsole.log('Input item:', JSON.stringify(item.json, null, 2));\n\n// Get the original data from the workflow context\nconst originalData = $('ProcessRedditAPI').item.json;\n\nif (!originalData) {\n  console.log('ERROR: Could not access original data from ProcessRedditAPI');\n  throw new Error('Could not access original data from ProcessRedditAPI');\n}\n\n// Check if we have both video and audio data\nconst hasVideo = item.json.download_completed || item.json.audio_download_completed;\nconst hasAudio = item.json.has_audio && item.json.audio_download_completed;\n\nconsole.log('Data status:', { hasVideo, hasAudio });\n\n// Pass through the data with all required fields preserved\nreturn [{\n  json: {\n    id: originalData.id,\n    media_type: originalData.media_type,\n    slide: originalData.slide,\n    chat_id: originalData.chat_id,\n    caption: originalData.caption,\n    media_url: originalData.media_url,\n    audio_url: originalData.audio_url,\n    has_audio: hasAudio,\n    download_completed: hasVideo,\n    audio_download_completed: hasAudio,\n    file_path: `/tmp/n8n_video_${originalData.id}_${originalData.media_type}_${originalData.slide}.mp4`,\n    audio_file_path: hasAudio ? `/tmp/n8n_audio_${originalData.id}_${originalData.media_type}_${originalData.slide}.mp4` : null\n  }\n}];"
+      },
+      "id": "MergeVideoAudioData",
+      "name": "MergeVideoAudioData",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [600, 350]
+    },
+
 
 
     {
       "parameters": {
-        "jsCode": "// Build the process video command with resolved values\nconst item = $input.item;\nconsole.log('=== BUILDING PROCESS COMMAND ===');\nconsole.log('Input item:', JSON.stringify(item.json, null, 2));\n\nconst { id, media_type, slide } = item.json;\nconsole.log('Building process command for:', { id, media_type, slide });\n\n// Validate required fields\nif (!id || !media_type || !slide) {\n  console.log('ERROR: Missing required fields in BuildProcessCommand');\n  console.log('id:', id);\n  console.log('media_type:', media_type);\n  console.log('slide:', slide);\n  throw new Error('Missing required fields in BuildProcessCommand');\n}\n\n// Build a simple, robust bash command with hardcoded paths to avoid variable expansion issues\nconst bashCommand = `bash -c \"set -e; echo '=== DEBUG INFO ==='; echo 'Video file: /tmp/n8n_video_${id}_${media_type}_${slide}.mp4'; echo 'Output file: /tmp/n8n_mux_${id}_${media_type}_${slide}.mp4'; echo '=== CHECKING VIDEO FILE ==='; ls -la /tmp/ | grep n8n || echo 'No n8n files found'; if [ -f /tmp/n8n_video_${id}_${media_type}_${slide}.mp4 ]; then echo 'Video file EXISTS'; ls -lh /tmp/n8n_video_${id}_${media_type}_${slide}.mp4; else echo 'Video file NOT FOUND'; fi; echo '=== ATTEMPTING PROCESSING ==='; if [ ! -f /tmp/n8n_video_${id}_${media_type}_${slide}.mp4 ]; then echo 'ERROR: Video file does not exist'; exit 1; fi; if [ ! -s /tmp/n8n_video_${id}_${media_type}_${slide}.mp4 ]; then echo 'ERROR: Video file is empty'; exit 1; fi; echo 'Video file found and not empty, copying...'; cp /tmp/n8n_video_${id}_${media_type}_${slide}.mp4 /tmp/n8n_mux_${id}_${media_type}_${slide}.mp4; echo 'Video processing completed successfully'\"`;\n\nconsole.log('Built bash command:', bashCommand);\n\n// Pass through the data with the resolved command\nreturn [{\n  json: {\n    id,\n    media_type,\n    slide,\n    chat_id: item.json.chat_id,\n    caption: item.json.caption,\n    media_url: item.json.media_url,\n    download_completed: item.json.download_completed,\n    file_path: item.json.file_path,\n    resolved_bash_command: bashCommand\n  }\n}];"
+        "jsCode": "// Build the process video command with resolved values\nconst item = $input.item;\nconsole.log('=== BUILDING PROCESS COMMAND ===');\nconsole.log('Input item:', JSON.stringify(item.json, null, 2));\n\nconst { id, media_type, slide, has_audio, audio_file_path } = item.json;\nconsole.log('Building process command for:', { id, media_type, slide, has_audio });\n\n// Validate required fields\nif (!id || !media_type || !slide) {\n  console.log('ERROR: Missing required fields in BuildProcessCommand');\n  console.log('id:', id);\n  console.log('media_type:', media_type);\n  console.log('slide:', slide);\n  throw new Error('Missing required fields in BuildProcessCommand');\n}\n\n// Build command based on whether we have audio\nlet bashCommand;\n\nif (has_audio && audio_file_path) {\n  console.log('Building FFmpeg command to merge video and audio');\n  bashCommand = `bash -c \"set -e; echo '=== DEBUG INFO ==='; echo 'Video file: /tmp/n8n_video_${id}_${media_type}_${slide}.mp4'; echo 'Audio file: /tmp/n8n_audio_${id}_${media_type}_${slide}.mp4'; echo 'Output file: /tmp/n8n_mux_${id}_${media_type}_${slide}.mp4'; echo '=== CHECKING FILES ==='; ls -la /tmp/ | grep n8n || echo 'No n8n files found'; if [ -f /tmp/n8n_video_${id}_${media_type}_${slide}.mp4 ]; then echo 'Video file EXISTS'; ls -lh /tmp/n8n_video_${id}_${media_type}_${slide}.mp4; else echo 'Video file NOT FOUND'; fi; if [ -f /tmp/n8n_audio_${id}_${media_type}_${slide}.mp4 ]; then echo 'Audio file EXISTS'; ls -lh /tmp/n8n_audio_${id}_${media_type}_${slide}.mp4; else echo 'Audio file NOT FOUND'; fi; echo '=== ATTEMPTING AUDIO-VIDEO MERGE ==='; if [ ! -f /tmp/n8n_video_${id}_${media_type}_${slide}.mp4 ]; then echo 'ERROR: Video file does not exist'; exit 1; fi; if [ ! -f /tmp/n8n_audio_${id}_${media_type}_${slide}.mp4 ]; then echo 'ERROR: Audio file does not exist'; exit 1; fi; if [ ! -s /tmp/n8n_video_${id}_${media_type}_${slide}.mp4 ]; then echo 'ERROR: Video file is empty'; exit 1; fi; if [ ! -s /tmp/n8n_audio_${id}_${media_type}_${slide}.mp4 ]; then echo 'ERROR: Audio file is empty'; exit 1; fi; echo 'Both files found and not empty, merging with FFmpeg...'; ffmpeg -i /tmp/n8n_video_${id}_${media_type}_${slide}.mp4 -i /tmp/n8n_audio_${id}_${media_type}_${slide}.mp4 -c:v copy -c:a aac -shortest /tmp/n8n_mux_${id}_${media_type}_${slide}.mp4; echo 'Audio-video merge completed successfully'\"`;\n} else {\n  console.log('No audio available, copying video only');\n  bashCommand = `bash -c \"set -e; echo '=== DEBUG INFO ==='; echo 'Video file: /tmp/n8n_video_${id}_${media_type}_${slide}.mp4'; echo 'Output file: /tmp/n8n_mux_${id}_${media_type}_${slide}.mp4'; echo '=== CHECKING VIDEO FILE ==='; ls -la /tmp/ | grep n8n || echo 'No n8n files found'; if [ -f /tmp/n8n_video_${id}_${media_type}_${slide}.mp4 ]; then echo 'Video file EXISTS'; ls -lh /tmp/n8n_video_${id}_${media_type}_${slide}.mp4; else echo 'Video file NOT FOUND'; fi; echo '=== ATTEMPTING PROCESSING ==='; if [ ! -f /tmp/n8n_video_${id}_${media_type}_${slide}.mp4 ]; then echo 'ERROR: Video file does not exist'; exit 1; fi; if [ ! -s /tmp/n8n_video_${id}_${media_type}_${slide}.mp4 ]; then echo 'ERROR: Video file is empty'; exit 1; fi; echo 'Video file found and not empty, copying...'; cp /tmp/n8n_video_${id}_${media_type}_${slide}.mp4 /tmp/n8n_mux_${id}_${media_type}_${slide}.mp4; echo 'Video processing completed successfully'\"`;\n}\n\nconsole.log('Built bash command:', bashCommand);\n\n// Pass through the data with the resolved command\nreturn [{\n  json: {\n    id,\n    media_type,\n    slide,\n    chat_id: item.json.chat_id,\n    caption: item.json.caption,\n    media_url: item.json.media_url,\n    download_completed: item.json.download_completed,\n    file_path: item.json.file_path,\n    has_audio: item.json.has_audio,\n    audio_file_path: item.json.audio_file_path,\n    resolved_bash_command: bashCommand\n  }\n}];"
       },
       "id": "BuildProcessCommand",
       "name": "BuildProcessCommand",
@@ -348,10 +392,14 @@
     "DebugDLVideo": { "main": [[{ "node": "SmartDownload", "type": "main", "index": 0 }]] },
     "SmartDownload": { "main": [[{ "node": "RedditAPI", "type": "main", "index": 0 }]] },
     "RedditAPI": { "main": [[{ "node": "ProcessRedditAPI", "type": "main", "index": 0 }]] },
-    "ProcessRedditAPI": { "main": [[{ "node": "BuildCurlCommand", "type": "main", "index": 0 }]] },
+    "ProcessRedditAPI": { "main": [[{ "node": "BuildCurlCommand", "type": "main", "index": 0 }, { "node": "BuildAudioCommand", "type": "main", "index": 0 }]] },
     "BuildCurlCommand": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }]] },
+    "BuildAudioCommand": { "main": [[{ "node": "DLAudio", "type": "main", "index": 0 }]] },
     "DLVideo": { "main": [[{ "node": "PreserveVideoData", "type": "main", "index": 0 }]] },
-    "PreserveVideoData": { "main": [[{ "node": "BuildProcessCommand", "type": "main", "index": 0 }]] },
+    "DLAudio": { "main": [[{ "node": "PreserveAudioData", "type": "main", "index": 0 }]] },
+    "PreserveVideoData": { "main": [[{ "node": "MergeVideoAudioData", "type": "main", "index": 0 }]] },
+    "PreserveAudioData": { "main": [[{ "node": "MergeVideoAudioData", "type": "main", "index": 0 }]] },
+    "MergeVideoAudioData": { "main": [[{ "node": "BuildProcessCommand", "type": "main", "index": 0 }]] },
     "BuildProcessCommand": { "main": [[{ "node": "ProcessVideo", "type": "main", "index": 0 }]] },
     "ProcessVideo": { "main": [[{ "node": "PreserveProcessedData", "type": "main", "index": 0 }]] },
     "PreserveProcessedData": { "main": [[{ "node": "ReadMux", "type": "main", "index": 0 }]] },
