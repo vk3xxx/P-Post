@@ -187,6 +187,16 @@
     },
     {
       "parameters": {
+        "jsCode": "// IMAGE LOOP COUNTER: Track image processing for loop management\nconst state = $getWorkflowStaticData('global');\nconst itemsToProcess = $node['Vars'].json['items_to_process'] || 5;\n\nconsole.log(`\\n📸 IMAGE LOOP COUNTER: Image processing completed`);\nconsole.log(`  Items processed so far: ${state.total_items_processed || 0}/${itemsToProcess}`);\nconsole.log(`  Progress: ${((state.total_items_processed || 0)/itemsToProcess*100).toFixed(1)}%`);\n\n// Check if we need to continue the loop\nif(state.total_items_processed < itemsToProcess && state.loop_items && state.loop_items.length > 0) {\n  console.log(`🔄 CONTINUING LOOP: ${state.loop_items.length} items remaining in queue`);\n  console.log(`  Next iteration will process: ${Math.min(itemsToProcess - state.total_items_processed, state.loop_items.length)} items`);\n  \n  // Return a signal to continue processing\n  return [{\n    json: {\n      continue_loop: true,\n      remaining_items: state.loop_items.length,\n      items_to_process: itemsToProcess,\n      total_processed: state.total_items_processed,\n      progress_percentage: ((state.total_items_processed || 0)/itemsToProcess*100).toFixed(1)\n    }\n  }];\n} else {\n  console.log(`✅ LOOP COMPLETE: All ${itemsToProcess} items have been processed`);\n  console.log(`  Final count: ${state.total_items_processed || 0} items processed`);\n  \n  // Reset loop state for next workflow run\n  state.loop_iteration = 0;\n  state.loop_start_time = Date.now();\n  state.total_items_processed = 0;\n  state.loop_items = [];\n  \n  return [{\n    json: {\n      continue_loop: false,\n      loop_complete: true,\n      total_processed: state.total_items_processed || 0,\n      final_message: `Loop completed successfully with ${state.total_items_processed || 0} items processed`\n    }\n  }];\n}"
+      },
+      "id": "ImageLoopCounter",
+      "name": "ImageLoopCounter",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [200, 60]
+    },
+    {
+      "parameters": {
         "batchSize": 10,
         "options": {}
       },
@@ -444,7 +454,8 @@
     },
     "SplitImages": { "main": [[{ "node": "ImageDeduplicate", "type": "main", "index": 0 }]] },
     "ImageDeduplicate": { "main": [[{ "node": "SendPhoto", "type": "main", "index": 0 }]] },
-    "SendPhoto": { "main": [] },
+    "SendPhoto": { "main": [[{ "node": "ImageLoopCounter", "type": "main", "index": 0 }]] },
+    "ImageLoopCounter": { "main": [] },
     "SplitVideos": { "main": [[{ "node": "DebugDLVideo", "type": "main", "index": 0 }]] },
     "DebugDLVideo": { "main": [[{ "node": "SmartDownload", "type": "main", "index": 0 }]] },
     "SmartDownload": { "main": [[{ "node": "RedditAPI", "type": "main", "index": 0 }]] },
