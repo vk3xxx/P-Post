@@ -3,6 +3,23 @@
   "comment": "Enterprise-grade workflow: Images use direct URL posting, videos use intelligent processing that elegantly handles both audio+video and video-only cases. TODO: Fix rate_seconds variable passing - currently hardcoded to 45 seconds in WaitImages and WaitVideos nodes.",
   "nodes": [
     {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minute",
+              "expression": "*/3"
+            }
+          ]
+        }
+      },
+      "id": "CronTrigger",
+      "name": "CronTrigger",
+      "type": "n8n-nodes-base.cron",
+      "typeVersion": 1,
+      "position": [-1800, 200]
+    },
+    {
       "parameters": {},
       "id": "ManualTrigger",
       "name": "ManualTrigger",
@@ -385,6 +402,7 @@
     }
   ],
   "connections": {
+    "CronTrigger": { "main": [[{ "node": "ManualTrigger", "type": "main", "index": 0 }]] },
     "ManualTrigger": { "main": [[{ "node": "Vars", "type": "main", "index": 0 }]] },
     "Vars": { "main": [[{ "node": "FetchJSON", "type": "main", "index": 0 }]] },
     "FetchJSON": { "main": [[{ "node": "ExtractMedia", "type": "main", "index": 0 }]] },
