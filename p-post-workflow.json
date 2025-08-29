@@ -35,7 +35,7 @@
             },
             {
               "name": "memory_ttl_days",
-              "value": 60
+              "value": 7
             }
           ]
         },
@@ -72,13 +72,24 @@
     },
     {
       "parameters": {
-        "jsCode": "const state = $getWorkflowStaticData('global');\nif(!state.posted) state.posted={};\nconst ttl=($node['Vars'].json['memory_ttl_days']||60)*24*60*60*1000;\nconst now=Date.now();\nfor(const [k,t] of Object.entries(state.posted)){\n  if(!t||now-t>ttl) delete state.posted[k];\n}\nconst fresh=[];\nfor(const it of items){\n  const k=it.json.key||it.json.media_url||it.json.id;\n  if(!k) continue;\n  if(!state.posted[k]){\n    state.posted[k]=now;\n    fresh.push(it);\n  }\n}\nreturn fresh;"
+        "jsCode": "// Enhanced deduplication with multiple fallback strategies\nconst state = $getWorkflowStaticData('global');\nif(!state.posted) state.posted={};\n\n// Clean up old entries\nconst ttl=($node['Vars'].json['memory_ttl_days']||60)*24*60*60*1000;\nconst now=Date.now();\nfor(const [k,t] of Object.entries(state.posted)){\n  if(!t||now-t>ttl) delete state.posted[k];\n}\n\nconst fresh=[];\nfor(const it of items){\n  const item = it.json;\n  \n  // Strategy 1: Use Reddit post ID + media type + slide (most reliable)\n  let k = `${item.id}_${item.media_type}_${item.slide}`;\n  \n  // Strategy 2: Fallback to Reddit post ID only\n  if(!k) k = item.id;\n  \n  // Strategy 3: Fallback to media URL (least reliable but better than nothing)\n  if(!k) k = item.media_url;\n  \n  if(!k) {\n    console.log('WARNING: Could not generate deduplication key for item:', item);\n    continue;\n  }\n  \n  // Check if we've already posted this content\n  if(!state.posted[k]) {\n    console.log('NEW CONTENT: Adding to fresh list with key:', k);\n    state.posted[k]=now;\n    fresh.push(it);\n  } else {\n    console.log('DUPLICATE DETECTED: Skipping content with key:', k, 'Last posted:', new Date(state.posted[k]));\n  }\n}\n\nconsole.log(`Deduplication complete: ${items.length} input items, ${fresh.length} fresh items, ${Object.keys(state.posted).length} total tracked items`);\nreturn fresh;"
       },
       "id": "Deduplicate",
       "name": "Deduplicate",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [-820, 200]
+    },
+
+    {
+      "parameters": {
+        "jsCode": "// Persistent deduplication with file backup\nconst item = $input.item;\nconsole.log('=== PERSISTENT DEDUPLICATION ===');\n\n// Get the original data from ExtractMedia\nconst originalData = $('ExtractMedia').item.json;\n\nif (!originalData) {\n  console.log('ERROR: Could not access original data from ExtractMedia');\n  throw new Error('Could not access original data from ExtractMedia');\n}\n\n// Create a unique content fingerprint\nconst contentFingerprint = {\n  reddit_post_id: originalData.id,\n  media_type: originalData.media_type,\n  slide: originalData.slide,\n  title: originalData.title,\n  permalink: originalData.permalink,\n  timestamp: Date.now()\n};\n\nconsole.log('Content fingerprint created:', contentFingerprint);\n\n// Pass through the data with enhanced deduplication info\nreturn [{\n  json: {\n    ...item.json,\n    content_fingerprint: JSON.stringify(contentFingerprint),\n    deduplication_key: `${originalData.id}_${originalData.media_type}_${originalData.slide}`,\n    is_unique_content: true\n  }\n}];"
+      },
+      "id": "PersistentDeduplicate",
+      "name": "PersistentDeduplicate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-930, 200]
     },
     {
       "parameters": {
@@ -377,7 +388,8 @@
     "ManualTrigger": { "main": [[{ "node": "Vars", "type": "main", "index": 0 }]] },
     "Vars": { "main": [[{ "node": "FetchJSON", "type": "main", "index": 0 }]] },
     "FetchJSON": { "main": [[{ "node": "ExtractMedia", "type": "main", "index": 0 }]] },
-    "ExtractMedia": { "main": [[{ "node": "Deduplicate", "type": "main", "index": 0 }]] },
+    "ExtractMedia": { "main": [[{ "node": "PersistentDeduplicate", "type": "main", "index": 0 }]] },
+    "PersistentDeduplicate": { "main": [[{ "node": "Deduplicate", "type": "main", "index": 0 }]] },
     "Deduplicate": { "main": [[{ "node": "CaptionBuilder", "type": "main", "index": 0 }]] },
     "CaptionBuilder": { "main": [[{ "node": "IfVideo", "type": "main", "index": 0 }]] },
     "IfVideo": {
