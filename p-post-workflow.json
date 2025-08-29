@@ -1,6 +1,6 @@
 {
   "name": "P-Post_Content_Automation",
-  "comment": "Enterprise-grade workflow: Images use direct URL posting, videos use intelligent processing that elegantly handles both audio+video and video-only cases. TODO: Fix rate_seconds variable passing - currently hardcoded to 45 seconds in WaitImages and WaitVideos nodes.",
+  "comment": "Enterprise-grade workflow: Images use direct URL posting, videos use intelligent processing that elegantly handles both audio+video and video-only cases. No wait nodes - direct streaming for maximum efficiency.",
   "nodes": [
     {
       "parameters": {
@@ -160,14 +160,6 @@
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1,
       "position": [0, 60]
-    },
-    {
-      "parameters": { "amount": 45, "unit": "seconds" },
-      "id": "WaitImages",
-      "name": "WaitImages",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1,
-      "position": [200, 60]
     },
     {
       "parameters": {
@@ -398,17 +390,6 @@
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
       "position": [1200, 300]
-    },
-
-
-
-    {
-      "parameters": { "amount": 45, "unit": "seconds" },
-      "id": "WaitVideos",
-      "name": "WaitVideos",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1,
-      "position": [1400, 360]
     }
   ],
   "connections": {
@@ -427,19 +408,16 @@
       ]
     },
     "SplitImages": { "main": [[{ "node": "SendPhoto", "type": "main", "index": 0 }]] },
-    "SendPhoto": { "main": [[{ "node": "WaitImages", "type": "main", "index": 0 }]] },
+    "SendPhoto": { "main": [] },
     "SplitVideos": { "main": [[{ "node": "DebugDLVideo", "type": "main", "index": 0 }]] },
     "DebugDLVideo": { "main": [[{ "node": "SmartDownload", "type": "main", "index": 0 }]] },
     "SmartDownload": { "main": [[{ "node": "RedditAPI", "type": "main", "index": 0 }]] },
     "RedditAPI": { "main": [[{ "node": "ProcessRedditAPI", "type": "main", "index": 0 }]] },
     "ProcessRedditAPI": { "main": [[{ "node": "PostAPIDeduplicate", "type": "main", "index": 0 }]] },
-    "PostAPIDeduplicate": { "main": [[{ "node": "BuildCurlCommand", "type": "main", "index": 0 }, { "node": "BuildAudioCommand", "type": "main", "index": 0 }]] },
+    "PostAPIDeduplicate": { "main": [[{ "node": "BuildCurlCommand", "type": "main", "index": 0 }]] },
     "BuildCurlCommand": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }]] },
-    "BuildAudioCommand": { "main": [[{ "node": "DLAudio", "type": "main", "index": 0 }]] },
     "DLVideo": { "main": [[{ "node": "PreserveVideoData", "type": "main", "index": 0 }]] },
-    "DLAudio": { "main": [[{ "node": "PreserveAudioData", "type": "main", "index": 0 }]] },
     "PreserveVideoData": { "main": [[{ "node": "MergeVideoAudioData", "type": "main", "index": 0 }]] },
-    "PreserveAudioData": { "main": [[{ "node": "MergeVideoAudioData", "type": "main", "index": 0 }]] },
     "MergeVideoAudioData": { "main": [[{ "node": "BuildProcessCommand", "type": "main", "index": 0 }]] },
     "BuildProcessCommand": { "main": [[{ "node": "ProcessVideo", "type": "main", "index": 0 }]] },
     "ProcessVideo": { "main": [[{ "node": "PreserveProcessedData", "type": "main", "index": 0 }]] },
@@ -447,6 +425,6 @@
     "ReadMux": { "main": [[{ "node": "MergeVideoData", "type": "main", "index": 0 }]] },
     "MergeVideoData": { "main": [[{ "node": "SendVideo", "type": "main", "index": 0 }]] },
     "SendVideo": { "main": [[{ "node": "Cleanup", "type": "main", "index": 0 }]] },
-    "Cleanup": { "main": [[{ "node": "WaitVideos", "type": "main", "index": 0 }]] }
+    "Cleanup": { "main": [] }
   }
 }
