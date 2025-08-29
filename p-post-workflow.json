@@ -89,7 +89,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Enhanced deduplication with multiple fallback strategies\nconst state = $getWorkflowStaticData('global');\nif(!state.posted) state.posted={};\n\n// Clean up old entries\nconst ttl=($node['Vars'].json['memory_ttl_days']||60)*24*60*60*1000;\nconst now=Date.now();\nfor(const [k,t] of Object.entries(state.posted)){\n  if(!t||now-t>ttl) delete state.posted[k];\n}\n\nconst fresh=[];\nfor(const it of items){\n  const item = it.json;\n  \n  // Strategy 1: Use Reddit post ID + media type + slide (most reliable)\n  let k = `${item.id}_${item.media_type}_${item.slide}`;\n  \n  // Strategy 2: Fallback to Reddit post ID only\n  if(!k) k = item.id;\n  \n  // Strategy 3: Fallback to media URL (least reliable but better than nothing)\n  if(!k) k = item.media_url;\n  \n  if(!k) {\n    console.log('WARNING: Could not generate deduplication key for item:', item);\n    continue;\n  }\n  \n  // Check if we've already posted this content\n  if(!state.posted[k]) {\n    console.log('NEW CONTENT: Adding to fresh list with key:', k);\n    state.posted[k]=now;\n    fresh.push(it);\n  } else {\n    console.log('DUPLICATE DETECTED: Skipping content with key:', k, 'Last posted:', new Date(state.posted[k]));\n  }\n}\n\nconsole.log(`Deduplication complete: ${items.length} input items, ${fresh.length} fresh items, ${Object.keys(state.posted).length} total tracked items`);\nreturn fresh;"
+        "jsCode": "// ULTRA-ROBUST DEDUPLICATION: Uses enhanced keys and content fingerprinting\nconst state = $getWorkflowStaticData('global');\nif(!state.posted) state.posted={};\nif(!state.content_fingerprints) state.content_fingerprints={};\n\n// Clean up old entries\nconst ttl=($node['Vars'].json['memory_ttl_days']||7)*24*60*60*1000;\nconst now=Date.now();\nfor(const [k,t] of Object.entries(state.posted)){\n  if(!t||now-t>ttl) delete state.posted[k];\n}\nfor(const [k,f] of Object.entries(state.content_fingerprints)){\n  if(!f||now-f.timestamp>ttl) delete state.content_fingerprints[k];\n}\n\nconst fresh=[];\nfor(const it of items){\n  const item = it.json;\n  \n  // Use the enhanced deduplication key from PersistentDeduplicate\n  let dedupKey = item.deduplication_key;\n  \n  // Fallback strategies if enhanced key is missing\n  if(!dedupKey) {\n    dedupKey = `${item.id}_${item.media_type}_${item.slide}`;\n  }\n  if(!dedupKey) dedupKey = item.id;\n  if(!dedupKey) dedupKey = item.media_url;\n  \n  if(!dedupKey) {\n    console.log('WARNING: Could not generate deduplication key for item:', item);\n    continue;\n  }\n  \n  // Create content fingerprint for additional deduplication\n  const contentFingerprint = {\n    reddit_post_id: item.id,\n    title: item.title,\n    permalink: item.permalink,\n    media_type: item.media_type,\n    slide: item.slide,\n    timestamp: now\n  };\n  \n  const fingerprintKey = JSON.stringify(contentFingerprint);\n  \n  // Check both deduplication key AND content fingerprint\n  const isDuplicateByKey = state.posted[dedupKey];\n  const isDuplicateByFingerprint = state.content_fingerprints[fingerprintKey];\n  \n  if(!isDuplicateByKey && !isDuplicateByFingerprint) {\n    console.log('NEW CONTENT: Adding to fresh list with key:', dedupKey);\n    console.log('Content fingerprint:', contentFingerprint);\n    \n    // Store both deduplication methods\n    state.posted[dedupKey] = now;\n    state.content_fingerprints[fingerprintKey] = {\n      ...contentFingerprint,\n      dedup_key: dedupKey,\n      timestamp: now\n    };\n    \n    fresh.push(it);\n  } else {\n    if(isDuplicateByKey) {\n      console.log('DUPLICATE DETECTED by key:', dedupKey, 'Last posted:', new Date(state.posted[dedupKey]));\n    }\n    if(isDuplicateByFingerprint) {\n      console.log('DUPLICATE DETECTED by fingerprint:', fingerprintKey, 'Last posted:', new Date(state.content_fingerprints[fingerprintKey].timestamp));\n    }\n  }\n}\n\nconsole.log(`Deduplication complete: ${items.length} input items, ${fresh.length} fresh items`);\nconsole.log(`Tracking: ${Object.keys(state.posted).length} keys, ${Object.keys(state.content_fingerprints).length} fingerprints`);\nreturn fresh;"
       },
       "id": "Deduplicate",
       "name": "Deduplicate",
@@ -232,13 +232,23 @@
     },
     {
       "parameters": {
+        "jsCode": "// POST-API DEDUPLICATION: Catch duplicates after Reddit API URL changes\nconst state = $getWorkflowStaticData('global');\nif(!state.posted) state.posted={};\nif(!state.content_fingerprints) state.content_fingerprints={};\n\nconst fresh=[];\nfor(const it of items){\n  const item = it.json;\n  \n  // Create a robust deduplication key that survives URL changes\n  const dedupKey = `${item.id}_${item.media_type}_${item.slide}`;\n  \n  // Create content fingerprint for additional deduplication\n  const contentFingerprint = {\n    reddit_post_id: item.id,\n    title: item.title,\n    permalink: item.permalink,\n    media_type: item.media_type,\n    slide: item.slide\n  };\n  \n  const fingerprintKey = JSON.stringify(contentFingerprint);\n  \n  // Check both deduplication methods\n  const isDuplicateByKey = state.posted[dedupKey];\n  const isDuplicateByFingerprint = state.content_fingerprints[fingerprintKey];\n  \n  if(!isDuplicateByKey && !isDuplicateByFingerprint) {\n    console.log('POST-API: NEW CONTENT - Adding to fresh list with key:', dedupKey);\n    console.log('Content fingerprint:', contentFingerprint);\n    \n    // Store both deduplication methods\n    state.posted[dedupKey] = Date.now();\n    state.content_fingerprints[fingerprintKey] = {\n      ...contentFingerprint,\n      dedup_key: dedupKey,\n      timestamp: Date.now()\n    };\n    \n    fresh.push(it);\n  } else {\n    if(isDuplicateByKey) {\n      console.log('POST-API: DUPLICATE DETECTED by key:', dedupKey, 'Last posted:', new Date(state.posted[dedupKey]));\n    }\n    if(isDuplicateByFingerprint) {\n      console.log('POST-API: DUPLICATE DETECTED by fingerprint:', fingerprintKey, 'Last posted:', new Date(state.content_fingerprints[fingerprintKey].timestamp));\n    }\n  }\n}\n\nconsole.log(`POST-API Deduplication: ${items.length} input items, ${fresh.length} fresh items`);\nreturn fresh;"
+      },
+      "id": "PostAPIDeduplicate",
+      "name": "PostAPIDeduplicate",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
         "command": "={{$json.resolved_curl_command}}"
       },
       "id": "DLVideo",
       "name": "DLVideo",
       "type": "n8n-nodes-base.executeCommand",
       "typeVersion": 1,
-      "position": [200, 300]
+      "position": [275, 300]
     },
 
     {
@@ -422,7 +432,8 @@
     "DebugDLVideo": { "main": [[{ "node": "SmartDownload", "type": "main", "index": 0 }]] },
     "SmartDownload": { "main": [[{ "node": "RedditAPI", "type": "main", "index": 0 }]] },
     "RedditAPI": { "main": [[{ "node": "ProcessRedditAPI", "type": "main", "index": 0 }]] },
-    "ProcessRedditAPI": { "main": [[{ "node": "BuildCurlCommand", "type": "main", "index": 0 }, { "node": "BuildAudioCommand", "type": "main", "index": 0 }]] },
+    "ProcessRedditAPI": { "main": [[{ "node": "PostAPIDeduplicate", "type": "main", "index": 0 }]] },
+    "PostAPIDeduplicate": { "main": [[{ "node": "BuildCurlCommand", "type": "main", "index": 0 }, { "node": "BuildAudioCommand", "type": "main", "index": 0 }]] },
     "BuildCurlCommand": { "main": [[{ "node": "DLVideo", "type": "main", "index": 0 }]] },
     "BuildAudioCommand": { "main": [[{ "node": "DLAudio", "type": "main", "index": 0 }]] },
     "DLVideo": { "main": [[{ "node": "PreserveVideoData", "type": "main", "index": 0 }]] },
